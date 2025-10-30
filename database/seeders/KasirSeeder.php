@@ -10,17 +10,6 @@ class KasirSeeder extends Seeder
 {
     public function run(): void
     {
-        // Jalankan berulang aman: akan update jika username sudah ada
-        DB::table('kasir')->updateOrInsert(
-            ['username' => 'admin'],
-            [
-                'nama'       => 'Administrator',
-                'password'   => Hash::make('admin123'),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
-        );
-
         // Tambahan contoh kasir lain (opsional)
         DB::table('kasir')->updateOrInsert(
             ['username' => 'sakata'],

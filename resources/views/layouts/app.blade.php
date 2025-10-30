@@ -24,11 +24,16 @@
 
       <div class="ms-auto d-flex align-items-center gap-2">
         <span class="text-secondary small d-none d-sm-inline">Halo, {{ session('kasir_nama') }}</span>
-        <a class="btn btn-outline-cyan btn-sm" href="{{ route('akun.password') }}">Ganti Password</a>
-        <form method="post" action="{{ route('logout') }}" class="m-0">
-          @csrf
-          <button class="btn btn-danger btn-sm">Logout</button>
-        </form>
+
+        <a class="btn btn-outline-cyan btn-sm" href="{{ route('akun.password') }}">
+          Ganti Password
+        </a>
+
+        {{-- Tombol Logout sekarang tidak langsung submit.
+             Dia hanya buka modal konfirmasi. --}}
+        <button type="button" class="btn btn-danger btn-sm" id="btnLogout">
+          Logout
+        </button>
       </div>
     </div>
   </nav>
@@ -100,14 +105,57 @@
   </div>
 
   <main class="content-with-sidebar py-4 px-3 px-lg-4">
-    @if(session('success')) <div class="alert alert-success auto-contrast">{{ session('success') }}</div> @endif
-    @if(session('error'))   <div class="alert alert-danger auto-contrast">{{ session('error') }}</div> @endif
+    @if(session('success'))
+      <div class="alert alert-success auto-contrast">{{ session('success') }}</div>
+    @endif
+    @if(session('error'))
+      <div class="alert alert-danger auto-contrast">{{ session('error') }}</div>
+    @endif
+
     @yield('content')
   </main>
 
+  {{-- =========================================================
+       FORM LOGOUT TERSEMBUNYI
+       Ini yang benar-benar melakukan POST /logout saat user klik "Ya"
+     ========================================================= --}}
+  <form id="logoutForm" method="post" action="{{ route('logout') }}" class="d-none">
+    @csrf
+  </form>
+
+  {{-- =========================================================
+       MODAL KONFIRMASI LOGOUT
+       Pop up "Yakin logout?" -> [Tidak] / [Ya, Logout]
+       Desain modal dibuat gelap supaya match tema gelap kamu.
+     ========================================================= --}}
+  <div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content bg-surface text-base border border-secondary">
+        <div class="modal-header">
+          <h5 class="modal-title">Konfirmasi Logout</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+        </div>
+        <div class="modal-body">
+          Apakah Anda yakin ingin logout?
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+            Tidak
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" id="confirmLogout">
+            Ya, Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {{-- Bootstrap Bundle JS (sudah termasuk Popper) --}}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <!-- MUAT CHART.JS (wajib untuk grafik) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <script>
     // set tinggi navbar ke CSS var (untuk sidebar fixed)
     (function(){
@@ -115,7 +163,33 @@
       const h = nav ? nav.offsetHeight : 56;
       document.documentElement.style.setProperty('--navbar-height', h + 'px');
     })();
+
+    // LOGOUT MODAL HANDLER
+    (function(){
+      const btnLogout    = document.getElementById('btnLogout');      // tombol Logout di navbar
+      const logoutForm   = document.getElementById('logoutForm');     // form POST logout tersembunyi
+      const modalEl      = document.getElementById('logoutModal');    // elemen modal
+      const confirmBtn   = document.getElementById('confirmLogout');  // tombol "Ya, Logout"
+
+      if (btnLogout && logoutForm && modalEl && confirmBtn) {
+        const modal = new bootstrap.Modal(modalEl, {
+          backdrop: 'static', // klik luar tidak langsung nutup
+          keyboard: false     // tekan ESC tidak langsung nutup
+        });
+
+        // saat klik tombol Logout -> tampilkan modal konfirmasi
+        btnLogout.addEventListener('click', () => {
+          modal.show();
+        });
+
+        // saat klik "Ya, Logout" -> submit form logout
+        confirmBtn.addEventListener('click', () => {
+          logoutForm.submit();
+        });
+      }
+    })();
   </script>
+
   @yield('scripts')
 </body>
 </html>

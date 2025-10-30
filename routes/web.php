@@ -9,36 +9,36 @@ use App\Http\Controllers\TransaksiController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\AkunController;
 
-Route::get('/', [AuthController::class, 'loginPage'])->name('login');
-Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+// LOGIN & LOGOUT
+Route::get('/',        [AuthController::class, 'loginPage'])->name('login');
+Route::post('/login',  [AuthController::class, 'login'])->name('login.post');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+// AREA YANG HARUS LOGIN
 Route::middleware(['kasir.auth'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Master
+    // Master Data
     Route::resource('kategori', KategoriController::class)->except(['show']);
     Route::resource('produk',   ProdukController::class)->except(['show']);
 
-    // Transaksi Baru (keranjang)
-    Route::get ('/transaksi/new',          [TransaksiController::class, 'new'])->name('transaksi.new');
-    Route::post('/transaksi/add-item',     [TransaksiController::class, 'addItem'])->name('transaksi.addItem');
-    Route::post('/transaksi/update-qty',   [TransaksiController::class, 'updateQty'])->name('transaksi.updateQty');
-    Route::post('/transaksi/remove-item',  [TransaksiController::class, 'removeItem'])->name('transaksi.removeItem');
-    Route::post('/transaksi/simpan',       [TransaksiController::class, 'simpan'])->name('transaksi.simpan');
+    // Transaksi Baru / Keranjang
+    Route::get('/transaksi/new',          [TransaksiController::class, 'new'])->name('transaksi.new');
+    Route::post('/transaksi/add-item',    [TransaksiController::class, 'addItem'])->name('transaksi.addItem');
+    Route::post('/transaksi/update-qty',  [TransaksiController::class, 'updateQty'])->name('transaksi.updateQty');
+    Route::post('/transaksi/remove-item', [TransaksiController::class, 'removeItem'])->name('transaksi.removeItem');
+    Route::post('/transaksi/simpan',      [TransaksiController::class, 'simpan'])->name('transaksi.simpan');
 
-    // Riwayat transaksi & detail nota
-    Route::get ('/transaksi',              [TransaksiController::class, 'index'])->name('transaksi.index');
-    Route::get ('/transaksi/{id}',         [TransaksiController::class, 'show'])
-        ->whereNumber('id') // penting agar tidak bentrok dengan "/transaksi/new"
-        ->name('transaksi.show');
+    // Riwayat transaksi & detail
+    Route::get('/transaksi',      [TransaksiController::class, 'index'])->name('transaksi.index');
+    Route::get('/transaksi/{id}', [TransaksiController::class, 'show'])->name('transaksi.show');
 
     // Laporan
     Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
 
-    // Akun
-    Route::get ('/akun/password',  [AkunController::class, 'passwordPage'])->name('akun.password');
-    Route::post('/akun/password',  [AkunController::class, 'updatePassword'])->name('akun.password.update');
+    // Akun (ganti password)
+    Route::get('/akun/password',  [AkunController::class, 'passwordPage'])->name('akun.password');
+    Route::post('/akun/password', [AkunController::class, 'updatePassword'])->name('akun.password.update');
 });
