@@ -11,33 +11,45 @@ use App\Models\DetailTransaksi;
 
 class TransaksiController extends Controller
 {
-    /** Halaman transaksi baru (daftar produk + keranjang) */
+    /**
+     * Halaman transaksi baru (daftar produk kiri + keranjang kanan)
+     */
     public function new(Request $r)
-{
-    $q = trim((string) $r->q);
+    {
+        $q = trim((string) $r->q);
 
-    // LANGSUNG query tanpa scope aktif
-    $produk = Produk::query()
-        ->when($q !== '', fn($qq) => $qq->where('nama', 'like', "%{$q}%"))
-        ->orderBy('nama')
-        ->paginate(12)
-        ->withQueryString();
+        // Ambil daftar produk
+        $produk = Produk::query()
+            ->when($q !== '', fn($qq) => $qq->where('nama', 'like', "%{$q}%"))
+            ->orderBy('nama')
+            ->paginate(12)
+            ->withQueryString();
 
-    // bersihkan keranjang dari produk yang sudah hilang di DB
-    $cart = collect(session('cart', []))
-        ->filter(fn ($row) => Produk::where('idproduk', $row['idproduk'])->exists())
-        ->all();
-    session(['cart' => $cart]);
+        // Bersihkan keranjang dari item produk yang sudah tidak ada di DB
+        $cart = collect(session('cart', []))
+            ->filter(fn ($row) => Produk::where('idproduk', $row['idproduk'])->exists())
+            ->all();
 
-    return view('transaksi.new', compact('produk', 'q'));
-}
+        session(['cart' => $cart]);
 
-    /** Tambah item ke keranjang */
+        return view('transaksi.new', [
+            'title'  => 'Transaksi Baru',
+            'produk' => $produk,
+            'q'      => $q,
+            // keranjang diambil langsung di blade dari session, jadi aman
+        ]);
+    }
+
+    /**
+     * Tambah item ke keranjang (session)
+     */
     public function addItem(Request $r)
     {
-        $r->validate(['idproduk' => 'required|integer|exists:produk,idproduk']);
+        $r->validate([
+            'idproduk' => 'required|integer|exists:produk,idproduk',
+        ]);
 
-        // Pastikan produk masih "aktif" jika scopenya ada
+        // kalau kamu punya scopeAktif() di model Produk, kita pakai
         $finder = method_exists(Produk::class, 'scopeAktif')
             ? Produk::aktif()
             : Produk::query();
@@ -66,7 +78,9 @@ class TransaksiController extends Controller
         return back()->with('success', 'Produk ditambahkan ke keranjang.');
     }
 
-    /** Update qty di keranjang */
+    /**
+     * Update qty item di keranjang
+     */
     public function updateQty(Request $r)
     {
         $r->validate([
@@ -86,10 +100,14 @@ class TransaksiController extends Controller
         return back();
     }
 
-    /** Hapus item dari keranjang */
+    /**
+     * Hapus item dari keranjang
+     */
     public function removeItem(Request $r)
     {
-        $r->validate(['idproduk' => 'required|integer']);
+        $r->validate([
+            'idproduk' => 'required|integer',
+        ]);
 
         $cart = session('cart', []);
         $key  = (string) $r->idproduk;
@@ -102,12 +120,17 @@ class TransaksiController extends Controller
         return back()->with('success', 'Item dihapus.');
     }
 
-    /** Simpan transaksi + detail ke DB */
+    /**
+     * Simpan transaksi (transaksi + detailtransaksi)
+     * - Validasi uang tunai kalau metode = tunai
+     * - Kurangi stok produk
+     * - Kosongkan keranjang
+     */
     public function simpan(Request $r)
     {
         $r->validate([
             'metode_bayar' => 'required|in:tunai,qris',
-            // uang_tunai akan divalidasi setelah kita tahu total
+            // uang_tunai akan dicek manual setelah kita tahu total
         ]);
 
         $cart = session('cart', []);
@@ -115,7 +138,7 @@ class TransaksiController extends Controller
             return back()->with('error', 'Keranjang masih kosong.');
         }
 
-        // Tolak jika ada produk yang sudah tidak ada di katalog
+        // Pastikan semua produk di keranjang masih ada
         foreach ($cart as $row) {
             if (!Produk::where('idproduk', $row['idproduk'])->exists()) {
                 return back()->with('error', 'Ada produk yang sudah dihapus dari katalog. Mohon cek keranjang.');
@@ -124,32 +147,33 @@ class TransaksiController extends Controller
 
         $total = collect($cart)->sum('subtotal');
 
-        // Validasi tambahan untuk tunai
+        // Validasi uang tunai (jika bayar tunai)
         if ($r->metode_bayar === 'tunai') {
-            // jika field uang_tunai tidak dikirim, set 0 agar aman untuk dibandingkan
             $uangTunai = (float) ($r->uang_tunai ?? 0);
             if ($uangTunai < $total) {
                 return back()->with('error', 'Uang tunai kurang dari total pembayaran.');
             }
         }
 
-        $kasirId = session('kasir_id'); // pastikan middleware login mengisi ini
+        $kasirId = session('kasir_id'); // dari login
         if (!$kasirId) {
             return back()->with('error', 'Sesi kasir tidak ditemukan.');
         }
 
         DB::beginTransaction();
         try {
+            // Simpan transaksi induk
             $trx = Transaksi::create([
                 'idkasir'      => $kasirId,
                 'tanggal'      => Carbon::now(),
                 'total'        => (float) $total,
                 'metode_bayar' => $r->metode_bayar,
-                // Jika tabel transaksi punya kolom bayar/kembalian, bisa simpan di sini:
+                // Kalau tabel transaksi punya kolom untuk bayar/kembalian, tambahkan di sini:
                 // 'bayar'       => $r->metode_bayar === 'tunai' ? (float) $r->uang_tunai : 0,
                 // 'kembalian'   => $r->metode_bayar === 'tunai' ? ((float)$r->uang_tunai - $total) : 0,
             ]);
 
+            // Simpan detail per item
             foreach ($cart as $row) {
                 DetailTransaksi::create([
                     'idtransaksi'  => $trx->idtransaksi,
@@ -160,7 +184,7 @@ class TransaksiController extends Controller
                     'satuan_jual'  => $row['satuan'] ?? 'pcs',
                 ]);
 
-                // Kurangi stok bila diperlukan
+                // Update stok
                 Produk::where('idproduk', $row['idproduk'])
                     ->decrement('stok', (int) $row['qty']);
             }
@@ -168,32 +192,48 @@ class TransaksiController extends Controller
             DB::commit();
             session()->forget('cart');
 
-            // Jika ingin menampilkan kembalian di flash message untuk tunai
+            // kalau tunai, kirim juga info kembalian ke flash message
             if ($r->metode_bayar === 'tunai') {
                 $kembalian = (float) ($r->uang_tunai ?? 0) - $total;
+
                 return redirect()
                     ->route('transaksi.new')
                     ->with('success', 'Transaksi disimpan. Kembalian: Rp ' . number_format(max($kembalian, 0), 0, ',', '.'));
             }
 
-            return redirect()->route('transaksi.new')->with('success', 'Transaksi disimpan.');
+            return redirect()
+                ->route('transaksi.new')
+                ->with('success', 'Transaksi disimpan.');
         } catch (\Throwable $e) {
             DB::rollBack();
             return back()->with('error', 'Gagal menyimpan transaksi: ' . $e->getMessage());
         }
     }
 
-    /** Riwayat transaksi */
+    /**
+     * Riwayat transaksi (list transaksi)
+     */
     public function index()
     {
         $data = Transaksi::orderByDesc('tanggal')->paginate(20);
-        return view('transaksi.index', ['title' => 'Riwayat Transaksi', 'data' => $data]);
+
+        return view('transaksi.index', [
+            'title' => 'Riwayat Transaksi',
+            'data'  => $data,
+        ]);
     }
 
-    /** Detail transaksi */
+    /**
+     * Detail transaksi (nota + tombol cetak)
+     */
     public function show($id)
     {
-        $trx = Transaksi::with(['details.produk'])->findOrFail($id);
-        return view('transaksi.show', ['title' => 'Detail Transaksi', 'trx' => $trx]);
+        // ambil transaksi + semua detail + produk tiap detail
+        $trx = Transaksi::with(['details.produk', 'kasir'])->findOrFail($id);
+
+        return view('transaksi.show', [
+            'title' => 'Detail Transaksi',
+            'trx'   => $trx,
+        ]);
     }
 }
