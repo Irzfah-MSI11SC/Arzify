@@ -4,7 +4,7 @@
 <h4 class="mb-3">Laporan Penjualan</h4>
 
 <form class="card card-body mb-3 auto-contrast" method="get" action="{{ route('laporan.index') }}">
-  <div class="row g-2">
+  <div class="row g-2 align-items-end">
     <div class="col-12 col-md-4">
       <label class="form-label">Dari</label>
       <div class="input-group">
@@ -19,13 +19,17 @@
         <input type="date" name="end" value="{{ $end }}" class="form-control">
       </div>
     </div>
-    <div class="col-12 col-md-2">
+    <div class="col-12 col-md-3">
       <label class="form-label">Tipe Periode</label>
-      <select name="tipe" class="form-select">
-        <option value="Harian" {{ $tipe=='Harian' ? 'selected' : '' }}>Harian</option>
+      @php $tp = $tipe_periode ?? request('tipe_periode', 'Harian'); @endphp
+      <select name="tipe_periode" class="form-select">
+        <option {{ $tp=='Harian'   ? 'selected' : '' }}>Harian</option>
+        <option {{ $tp=='Mingguan' ? 'selected' : '' }}>Mingguan</option>
+        <option {{ $tp=='Bulanan'  ? 'selected' : '' }}>Bulanan</option>
+        <option {{ $tp=='Tahunan'  ? 'selected' : '' }}>Tahunan</option>
       </select>
     </div>
-    <div class="col-12 col-md-2 d-flex align-items-end">
+    <div class="col-12 col-md-1">
       <button class="btn btn-accent w-100">Tampilkan</button>
     </div>
   </div>
@@ -76,7 +80,7 @@
   </div>
 </div>
 
-{{-- kirim data ke JS via data-* --}}
+{{-- data untuk chart --}}
 <div id="laporan-data"
      data-labels='@json($labels)'
      data-omzet='@json($seriesOmzet)'
@@ -103,15 +107,15 @@
   const cItem  = 'rgba(255, 171, 0, .85)';   // kuning
   const gridC  = 'rgba(255,255,255,.06)';
 
-  // Trend chart = semua BAR
+  // Semua batang (bar) agar konsisten
   new Chart(document.getElementById('trendChart').getContext('2d'), {
     type: 'bar',
     data: {
       labels: LABELS,
       datasets: [
         { type:'bar', label:'Omzet (Rp)', data:OMZET, backgroundColor:cOmzet, borderRadius:6, yAxisID:'yRp',   order:1, barPercentage:.6, categoryPercentage:.6 },
-        { type:'bar', label:'Transaksi',  data:TRX,   backgroundColor:cTrx,  borderRadius:6, yAxisID:'yCount',order:2, barPercentage:.6, categoryPercentage:.6 },
-        { type:'bar', label:'Item',       data:ITEMS, backgroundColor:cItem, borderRadius:6, yAxisID:'yCount',order:2, barPercentage:.6, categoryPercentage:.6 },
+        { type:'bar', label:'Transaksi',  data:TRX,   backgroundColor:cTrx,  borderRadius:6, yAxisID:'yCnt',  order:2, barPercentage:.6, categoryPercentage:.6 },
+        { type:'bar', label:'Item',       data:ITEMS, backgroundColor:cItem, borderRadius:6, yAxisID:'yCnt',  order:2, barPercentage:.6, categoryPercentage:.6 },
       ]
     },
     options: {
@@ -123,7 +127,7 @@
           ticks:{ callback:(v)=>rupiah(v), font:{ size:12 }},
           title:{ display:true, text:'Omzet (Rp)' }
         },
-        yCount:{
+        yCnt:{
           type:'linear', position:'right', grid:{ display:false },
           ticks:{ precision:0, font:{ size:12 }},
           title:{ display:true, text:'Jumlah' }
@@ -145,7 +149,7 @@
     type:'doughnut',
     data:{
       labels: PAYLAB.map(s=>s.toUpperCase()),
-      datasets:[{ data:PAYDATA, backgroundColor:['#2ecc71','#00bcd4'], borderWidth:0 }]
+      datasets:[{ data:PAYDATA, backgroundColor:['#2ecc71','#00bcd4','#f39c12','#9b59b6','#e74c3c'], borderWidth:0 }]
     },
     options:{
       cutout:'70%',

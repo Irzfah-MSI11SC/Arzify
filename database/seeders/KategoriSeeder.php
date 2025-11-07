@@ -9,18 +9,23 @@ class KategoriSeeder extends Seeder
 {
     public function run(): void
     {
-        $rows = [
-            ['nama' => 'Sembako'],
-            ['nama' => 'Minuman'],
-            ['nama' => 'Snack'],
-            ['nama' => 'Perawatan'],
+        // Daftar kategori yang dipakai ProdukSeeder
+        $kategori = [
+            'Minuman Seduh',
+            'Minuman Botol',
+            'Mie Instan',
+            'Bahan Pokok',
         ];
 
-        foreach ($rows as $r) {
-            DB::table('kategori')->updateOrInsert(
-                ['nama' => $r['nama']],
-                ['created_at' => now(), 'updated_at' => now()]
-            );
+        foreach ($kategori as $nama) {
+            // Jika sudah ada, biarkan; kalau belum, buat
+            $exists = DB::table('kategori')->where('nama', $nama)->first();
+
+            if (!$exists) {
+                DB::table('kategori')->insert([
+                    'nama' => $nama,
+                ]);
+            }
         }
     }
 }

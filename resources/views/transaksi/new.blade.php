@@ -3,6 +3,38 @@
 @section('content')
 <h4 class="mb-3">Transaksi Baru</h4>
 
+{{-- Banner transaksi terakhir --}}
+@if(isset($lastTrx) && $lastTrx)
+  <div class="card card-body mb-3 bg-surface">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+      <div>
+        <div class="fw-semibold">Transaksi terakhir disimpan</div>
+        <div class="small text-muted-2">
+          ID: #{{ $lastTrx->idtransaksi }} •
+          {{ \Carbon\Carbon::parse($lastTrx->tanggal)->format('d M Y H:i') }} •
+          Total Item: {{ $lastTrx->details->sum('qty') }} •
+          Total: Rp {{ number_format($lastTrx->total,0,',','.') }}
+        </div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="{{ route('transaksi.show', $lastTrx->idtransaksi) }}" class="btn btn-outline-cyan">
+          Cetak Struk / Detail
+        </a>  
+      </div>
+    </div>
+  </div>
+@endif
+
+<style>
+  .prod-thumb{
+    height:140px;
+    background:#0f141b;
+    display:flex;align-items:center;justify-content:center;
+    border-bottom:1px solid var(--border, #273142);
+  }
+  .object-fit-cover{ object-fit:cover; }
+</style>
+
 <div class="row g-3">
   {{-- ========== KIRI: Daftar Produk ========== --}}
   <div class="col-12 col-lg-7">
@@ -21,20 +53,25 @@
             @foreach($produk as $p)
               <div class="col-6 col-md-4">
                 <div class="card h-100">
-                  @php $src = $p->gambar ? 'data:image/png;base64,'.base64_encode($p->gambar) : null; @endphp
-                  @if($src)
-                    <img src="{{ $src }}" class="card-img-top object-fit-cover" style="height:140px" alt="gambar {{ $p->nama }}">
-                  @else
-                    <div class="d-flex align-items-center justify-content-center text-secondary" style="height:140px;background:#0f141b">Tanpa Gambar</div>
-                  @endif
+                  <div class="prod-thumb">
+                    @php $src = $p->gambar ? 'data:image/png;base64,'.base64_encode($p->gambar) : null; @endphp
+                    @if($src)
+                      <img src="{{ $src }}" class="w-100 h-100 object-fit-cover" alt="gambar {{ $p->nama }}">
+                    @else
+                      <div class="text-secondary small">Tanpa Gambar</div>
+                    @endif
+                  </div>
 
                   <div class="card-body">
-                    <div class="fw-semibold text-truncate mb-1" title="{{ $p->nama }}">{{ $p->nama }}</div>
+                    <div class="fw-semibold text-truncate" title="{{ $p->nama }}">{{ $p->nama }}</div>
+                    <div class="small text-muted-2 mb-1">
+                      {{ $p->kategori->nama ?? '-' }} • {{ $p->satuan_base ?? 'pcs' }}
+                    </div>
                     <div class="small text-secondary mb-2">Rp {{ number_format($p->harga,0,',','.') }}</div>
                     <form method="post" action="{{ route('transaksi.addItem') }}">
                       @csrf
                       <input type="hidden" name="idproduk" value="{{ $p->idproduk }}">
-                      <button class="btn btn-accent btn-sm w-100">
+                      <button class="btn btn-accent btn-sm w-100" {{ $p->stok <= 0 ? 'disabled' : '' }}>
                         <i class="bi bi-cart-plus me-1"></i> Tambah
                       </button>
                     </form>
@@ -48,7 +85,6 @@
         @endif
       </div>
 
-      {{-- Pagination (aman) --}}
       @if($produk instanceof \Illuminate\Contracts\Pagination\Paginator && $produk->hasPages())
         <div class="card-footer">
           {{ $produk->links() }}
@@ -66,13 +102,9 @@
         @php
           $items = $items ?? session('cart', []);
           $grand = $total ?? collect($items)->sum('subtotal');
-          // Cari file qris.png di public/image atau public/images
           $qrisAsset = null;
-          if (file_exists(public_path('image/qris.png'))) {
-            $qrisAsset = asset('image/qris.png');
-          } elseif (file_exists(public_path('images/qris.png'))) {
-            $qrisAsset = asset('images/qris.png');
-          }
+          if (file_exists(public_path('image/qris.png')))      $qrisAsset = asset('image/qris.png');
+          elseif (file_exists(public_path('images/qris.png'))) $qrisAsset = asset('images/qris.png');
         @endphp
 
         <div class="table-responsive">
@@ -110,17 +142,16 @@
                       </button>
                     </form>
 
-                    {{-- input + OK --}}
-                    <form method="post" action="{{ route('transaksi.updateQty') }}" class="d-inline-flex align-items-center gap-2">
+                    {{-- input (auto submit on change) --}}
+                    <form method="post" action="{{ route('transaksi.updateQty') }}" class="cart-qty-form d-inline-flex align-items-center gap-2">
                       @csrf
                       <input type="hidden" name="idproduk" value="{{ $pid }}">
                       <input type="number"
                              name="qty"
                              min="1"
                              value="{{ $qty }}"
-                             class="form-control form-control-sm text-center"
+                             class="form-control form-control-sm text-center qty-input"
                              style="width:72px">
-                      <button class="btn btn-outline-cyan btn-sm" title="Set Qty">OK</button>
                     </form>
 
                     {{-- plus --}}
@@ -188,7 +219,7 @@
             <div class="form-text" id="kembalianText">Kembalian: Rp 0</div>
           </div>
 
-          {{-- QRIS (gambar statis PNG) --}}
+          {{-- QRIS --}}
           <div id="qrisBox" class="mb-3 d-none">
             <label class="form-label">QRIS</label>
             <div class="p-2 bg-white d-inline-block rounded border">
@@ -215,6 +246,12 @@
 
 @section('scripts')
 <script>
+  // Auto submit saat input qty diubah (tanpa tombol OK)
+  document.querySelectorAll('.cart-qty-form').forEach(f=>{
+    const inp = f.querySelector('.qty-input');
+    inp && inp.addEventListener('change', ()=>f.submit());
+  });
+
 (function(){
   const metode   = document.getElementById('metodeBayar');
   const boxTunai = document.getElementById('tunaiBox');
@@ -235,34 +272,25 @@
     if (val === 'tunai') {
       boxTunai.classList.remove('d-none');
       boxQris.classList.add('d-none');
-      if (uang) {
-        uang.setAttribute('required','required');
-        uang.focus();
-        hitung();
-      }
+      uang && uang.setAttribute('required','required');
+      uang && uang.focus();
+      hitung();
     } else if (val === 'qris') {
       boxQris.classList.remove('d-none');
       boxTunai.classList.add('d-none');
-      if (uang) {
-        uang.removeAttribute('required');
-        uang.value = '';
-        textKmb.textContent = 'Kembalian: Rp 0';
-      }
+      uang && uang.removeAttribute('required');
+      if (uang) { uang.value = ''; textKmb.textContent = 'Kembalian: Rp 0'; }
     } else {
       boxTunai.classList.add('d-none');
       boxQris.classList.add('d-none');
-      if (uang) {
-        uang.removeAttribute('required');
-        uang.value = '';
-        textKmb.textContent = 'Kembalian: Rp 0';
-      }
+      uang && uang.removeAttribute('required');
+      if (uang) { uang.value = ''; textKmb.textContent = 'Kembalian: Rp 0'; }
     }
   }
 
   metode.addEventListener('change', toggleBox);
   uang && uang.addEventListener('input', hitung);
 
-  // Validasi submit: kalau tunai, uang harus >= total
   form.addEventListener('submit', function(e){
     if (metode.value === 'tunai') {
       const val = Number(uang.value || 0);
@@ -274,7 +302,6 @@
     }
   });
 
-  // Inisialisasi awal
   toggleBox();
 })();
 </script>

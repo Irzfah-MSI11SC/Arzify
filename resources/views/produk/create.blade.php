@@ -39,10 +39,22 @@
     </div>
 
     <div class="col-md-4">
-      <label class="form-label">Satuan (opsional)</label>
-      <input name="satuan_base" value="{{ old('satuan_base', 'pcs') }}" class="form-control">
-      @error('satuan_base') <div class="text-danger small">{{ $message }}</div> @enderror
-    </div>
+  <label class="form-label">Satuan</label>
+  @php
+    $satuanOpts = ['pcs','kg','liter'];
+    $sel = old('satuan_base');
+  @endphp
+  <select name="satuan_base" class="form-select">
+    <option value="">— pilih satuan —</option>
+    @foreach($satuanOpts as $v)
+      <option value="{{ $v }}" {{ $sel === $v ? 'selected' : '' }}>
+        {{ strtoupper($v) }}
+      </option>
+    @endforeach
+  </select>
+  @error('satuan_base') <div class="text-danger small">{{ $message }}</div> @enderror
+</div>
+
 
     <div class="col-md-6">
       <label class="form-label">Gambar (opsional)</label>

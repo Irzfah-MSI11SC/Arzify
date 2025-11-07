@@ -23,17 +23,33 @@
       </a>
 
       <div class="ms-auto d-flex align-items-center gap-2">
-        <span class="text-secondary small d-none d-sm-inline">Halo, {{ session('kasir_nama') }}</span>
 
-        <a class="btn btn-outline-cyan btn-sm" href="{{ route('akun.password') }}">
-          Ganti Password
-        </a>
+        {{-- === Dropdown User (Ganti Password & Logout) === --}}
+        <div class="dropdown">
+          <button class="btn btn-outline-cyan btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                  type="button" id="userMenu" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle"></i>
+            <span class="d-none d-sm-inline">{{ session('kasir_nama') }}</span>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark shadow" aria-labelledby="userMenu">
+            <li class="px-3 py-2 text-secondary small d-sm-none">
+              Halo, {{ session('kasir_nama') }}
+            </li>
+            <li>
+              <a class="dropdown-item" href="{{ route('akun.password') }}">
+                <i class="bi bi-key me-2"></i> Ganti Password
+              </a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <li>
+              <a href="#" class="dropdown-item text-danger" id="btnLogout">
+                <i class="bi bi-box-arrow-right me-2"></i> Logout
+              </a>
+            </li>
+          </ul>
+        </div>
+        {{-- === /Dropdown User === --}}
 
-        {{-- Tombol Logout sekarang tidak langsung submit.
-             Dia hanya buka modal konfirmasi. --}}
-        <button type="button" class="btn btn-danger btn-sm" id="btnLogout">
-          Logout
-        </button>
       </div>
     </div>
   </nav>
@@ -115,19 +131,12 @@
     @yield('content')
   </main>
 
-  {{-- =========================================================
-       FORM LOGOUT TERSEMBUNYI
-       Ini yang benar-benar melakukan POST /logout saat user klik "Ya"
-     ========================================================= --}}
+  {{-- Form logout tersembunyi (POST /logout) --}}
   <form id="logoutForm" method="post" action="{{ route('logout') }}" class="d-none">
     @csrf
   </form>
 
-  {{-- =========================================================
-       MODAL KONFIRMASI LOGOUT
-       Pop up "Yakin logout?" -> [Tidak] / [Ya, Logout]
-       Desain modal dibuat gelap supaya match tema gelap kamu.
-     ========================================================= --}}
+  {{-- Modal konfirmasi logout --}}
   <div class="modal fade" id="logoutModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content bg-surface text-base border border-secondary">
@@ -139,50 +148,43 @@
           Apakah Anda yakin ingin logout?
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
-            Tidak
-          </button>
-          <button type="button" class="btn btn-danger btn-sm" id="confirmLogout">
-            Ya, Logout
-          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Tidak</button>
+          <button type="button" class="btn btn-danger btn-sm" id="confirmLogout">Ya, Logout</button>
         </div>
       </div>
     </div>
   </div>
 
-  {{-- Bootstrap Bundle JS (sudah termasuk Popper) --}}
+  {{-- Bootstrap Bundle JS + Chart.js --}}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- MUAT CHART.JS (wajib untuk grafik) -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-    // set tinggi navbar ke CSS var (untuk sidebar fixed)
+    // set tinggi navbar -> CSS var (untuk sidebar fixed)
     (function(){
       const nav = document.querySelector('.app-navbar');
       const h = nav ? nav.offsetHeight : 56;
       document.documentElement.style.setProperty('--navbar-height', h + 'px');
     })();
 
-    // LOGOUT MODAL HANDLER
+    // Modal logout dari item dropdown
     (function(){
-      const btnLogout    = document.getElementById('btnLogout');      // tombol Logout di navbar
-      const logoutForm   = document.getElementById('logoutForm');     // form POST logout tersembunyi
-      const modalEl      = document.getElementById('logoutModal');    // elemen modal
-      const confirmBtn   = document.getElementById('confirmLogout');  // tombol "Ya, Logout"
+      const btnLogout  = document.getElementById('btnLogout');     // item dropdown
+      const logoutForm = document.getElementById('logoutForm');
+      const modalEl    = document.getElementById('logoutModal');
+      const confirmBtn = document.getElementById('confirmLogout');
 
       if (btnLogout && logoutForm && modalEl && confirmBtn) {
         const modal = new bootstrap.Modal(modalEl, {
-          backdrop: 'static', // klik luar tidak langsung nutup
-          keyboard: false     // tekan ESC tidak langsung nutup
+          backdrop: 'static',
+          keyboard: false
         });
 
-        // saat klik tombol Logout -> tampilkan modal konfirmasi
-        btnLogout.addEventListener('click', () => {
+        btnLogout.addEventListener('click', (e) => {
+          e.preventDefault();
           modal.show();
         });
 
-        // saat klik "Ya, Logout" -> submit form logout
         confirmBtn.addEventListener('click', () => {
           logoutForm.submit();
         });

@@ -6,27 +6,34 @@ use Illuminate\Database\Eloquent\Model;
 
 class Produk extends Model
 {
-    protected $table      = 'produk';      // nama tabel
-    protected $primaryKey = 'idproduk';    // primary key
-    public $timestamps    = false;         // set true kalau ada created_at/updated_at
+    protected $table = 'produk';
+    protected $primaryKey = 'idproduk';
+    public $timestamps = false;
 
-    // kolom yang boleh diisi mass-assignment
     protected $fillable = [
-        'nama', 'idkategori', 'harga', 'stok', 'satuan_base', 'gambar'
+        'nama',
+        'idkategori',
+        'harga',
+        'stok',
+        'satuan_base',
+        'gambar', // LONGBLOB
     ];
 
-    // Relasi: setiap produk milik satu kategori
+    protected $casts = [
+        'harga' => 'float',
+        'stok'  => 'float',
+    ];
+
+    /** Relasi ke kategori (FK: idkategori → PK: idkategori) */
     public function kategori()
     {
-        // 'idkategori' di produk mengacu ke 'idkategori' di tabel kategori
         return $this->belongsTo(Kategori::class, 'idkategori', 'idkategori');
     }
 
-    // (opsional) scope aktif, biar tidak error kalau dipanggil
-    public function scopeAktif($q)
+    /** Nama tabel detail transaksi (dipakai saat guard delete) */
+    public static function detailTable(): string
     {
-        return $q;
-        // kalau ingin filter stok > 0:
-        // return $q->where('stok', '>', 0);
+        // Sesuaikan dengan skema DB: detail_transaksi
+        return 'detail_transaksi';
     }
 }

@@ -53,13 +53,20 @@
 @section('scripts')
 <script>
 const d = JSON.parse(document.getElementById('dash-data').textContent);
+
+// warna (opsional)
+const cOmzet = 'rgba(0, 160, 255, .85)';   // biru
+const cTrx   = 'rgba(255, 99, 132, .85)';  // merah
+const cItem  = 'rgba(255, 171, 0, .85)';   // kuning
+
 new Chart(document.getElementById('chart7').getContext('2d'), {
   data: {
     labels: d.labels,
     datasets: [
-      { type: 'line', label: 'Omzet (Rp)', data: d.omzet, borderWidth: 2, tension:.3, yAxisID:'yRp' },
-      { type: 'bar',  label: 'Transaksi',  data: d.trx,   borderWidth: 1,         yAxisID:'yCnt' },
-      { type: 'bar',  label: 'Item',       data: d.items, borderWidth: 1,         yAxisID:'yCnt' },
+      // Ubah omzet jadi BAR
+      { type: 'bar', label: 'Omzet (Rp)', data: d.omzet, backgroundColor: cOmzet, borderWidth: 0, yAxisID:'yRp',  borderRadius:6, barPercentage:.6, categoryPercentage:.6 },
+      { type: 'bar', label: 'Transaksi',  data: d.trx,   backgroundColor: cTrx,   borderWidth: 0, yAxisID:'yCnt', borderRadius:6, barPercentage:.6, categoryPercentage:.6 },
+      { type: 'bar', label: 'Item',       data: d.items, backgroundColor: cItem,  borderWidth: 0, yAxisID:'yCnt', borderRadius:6, barPercentage:.6, categoryPercentage:.6 },
     ]
   },
   options: {
@@ -68,7 +75,9 @@ new Chart(document.getElementById('chart7').getContext('2d'), {
       yRp:  { type:'linear', position:'left',  grid:{drawOnChartArea:false} },
       yCnt: { type:'linear', position:'right' }
     },
-    plugins:{ legend:{labels:{color:'#cfd6df'}} }
+    plugins:{
+      legend:{ labels:{ color:'#cfd6df' } }
+    }
   }
 });
 </script>

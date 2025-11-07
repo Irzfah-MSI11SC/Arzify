@@ -38,11 +38,13 @@ class KategoriController extends Controller
     }
 
     public function destroy(Kategori $kategori)
-    {
-        if ($kategori->produk()->exists()) {
-            return back()->with('error','Kategori masih dipakai produk.');
-        }
-        $kategori->delete();
-        return back()->with('success','Kategori dihapus.');
+{
+    if ($kategori->produk()->exists()) {
+        return back()->with('error', 'Kategori masih dipakai produk.');
     }
+
+    $kategori->delete();
+    return back()->with('success', 'Kategori berhasil dihapus.');
+}
+
 }

@@ -28,15 +28,22 @@
       <input name="stok" type="number" min="0" step="1" class="form-control" value="{{ $produk->stok }}" required>
       @error('stok')<div class="text-danger small">{{ $message }}</div>@enderror
     </div>
-    <div class="col-12 col-md-4">
-      <label class="form-label">Satuan</label>
-      <select name="satuan_base" class="form-select" required>
-        @foreach(['pcs','kg','liter','pack','unit'] as $u)
-          <option value="{{ $u }}" @selected($produk->satuan_base==$u)>{{ strtoupper($u) }}</option>
-        @endforeach
-      </select>
-      @error('satuan_base')<div class="text-danger small">{{ $message }}</div>@enderror
-    </div>
+    <div class="col-md-4">
+  <label class="form-label">Satuan</label>
+  @php
+    $satuanOpts = ['pcs','kg','liter'];
+    $sel = old('satuan_base', $produk->satuan_base);
+  @endphp
+  <select name="satuan_base" class="form-select">
+    <option value="">— pilih satuan —</option>
+    @foreach($satuanOpts as $v)
+      <option value="{{ $v }}" {{ $sel === $v ? 'selected' : '' }}>
+        {{ strtoupper($v) }}
+      </option>
+    @endforeach
+  </select>
+  @error('satuan_base') <div class="text-danger small">{{ $message }}</div> @enderror
+</div>
     <div class="col-12">
       <label class="form-label">Gambar (opsional)</label>
       <input type="file" name="gambar" accept="image/*" class="form-control">

@@ -8,15 +8,7 @@ class Kasir extends Model
 {
     protected $table = 'kasir';
     protected $primaryKey = 'idkasir';
-    public $incrementing = true;
-    protected $keyType = 'int';
-    public $timestamps = true;
-
-    protected $fillable = ['username', 'password', 'nama'];
-    protected $hidden = ['password'];
-
-    public function transaksi()
-    {
-        return $this->hasMany(Transaksi::class, 'idkasir', 'idkasir');
-    }
+    public $timestamps = false;               // tabel kasir kamu tidak punya created_at/updated_at
+    protected $fillable = ['username','password','nama'];
+    protected $hidden   = ['password'];
 }

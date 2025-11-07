@@ -13,7 +13,6 @@
   </div>
 </div>
 
-
 {{-- Grid produk --}}
 @if(isset($produk) && $produk->count())
   <div class="row g-3">
@@ -37,7 +36,11 @@
           {{-- Body --}}
           <div class="card-body d-flex flex-column">
             <div class="fw-semibold mb-1 text-truncate" title="{{ $p->nama }}">{{ $p->nama }}</div>
-            <div class="text-secondary small mb-2">{{ $p->kategori->nama ?? '-' }}</div>
+
+            {{-- Kategori • Satuan --}}
+            <div class="text-secondary small mb-2">
+              {{ $p->kategori->nama ?? '-' }} • {{ $p->satuan_base ?: 'pcs' }}
+            </div>
 
             <div class="mt-auto d-flex justify-content-between small">
               <span>Stok: {{ rtrim(rtrim(number_format($p->stok, 2, ',', '.'), '0'), ',') }}</span>
@@ -53,7 +56,6 @@
                  Ubah
               </a>
 
-              {{-- HAPUS: penting gunakan method DELETE --}}
               <form method="post"
                     action="{{ route('produk.destroy', $p->idproduk) }}"
                     class="flex-fill"

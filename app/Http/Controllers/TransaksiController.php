@@ -18,9 +18,10 @@ class TransaksiController extends Controller
     {
         $q = trim((string) $r->q);
 
-        // Ambil daftar produk
+        // Hanya tampilkan produk yang masih punya stok (> 0)
         $produk = Produk::query()
-            ->when($q !== '', fn($qq) => $qq->where('nama', 'like', "%{$q}%"))
+            ->when($q !== '', fn ($qq) => $qq->where('nama', 'like', "%{$q}%"))
+            ->where('stok', '>', 0)
             ->orderBy('nama')
             ->paginate(12)
             ->withQueryString();
@@ -29,19 +30,26 @@ class TransaksiController extends Controller
         $cart = collect(session('cart', []))
             ->filter(fn ($row) => Produk::where('idproduk', $row['idproduk'])->exists())
             ->all();
-
         session(['cart' => $cart]);
+
+        // Ambil transaksi terakhir (jika ada) untuk banner cepat
+        $lastTrx = null;
+        if (session()->has('last_trx_id')) {
+            $lastTrx = Transaksi::with(['details.produk', 'kasir'])
+                ->find(session('last_trx_id'));
+        }
 
         return view('transaksi.new', [
             'title'  => 'Transaksi Baru',
             'produk' => $produk,
             'q'      => $q,
-            // keranjang diambil langsung di blade dari session, jadi aman
+            'lastTrx'=> $lastTrx,
         ]);
     }
 
     /**
      * Tambah item ke keranjang (session)
+     * - Dibatasi oleh stok terkini (stok decimal → qty integer memakai floor(stok))
      */
     public function addItem(Request $r)
     {
@@ -49,15 +57,22 @@ class TransaksiController extends Controller
             'idproduk' => 'required|integer|exists:produk,idproduk',
         ]);
 
-        // kalau kamu punya scopeAktif() di model Produk, kita pakai
-        $finder = method_exists(Produk::class, 'scopeAktif')
-            ? Produk::aktif()
-            : Produk::query();
-
+        $finder = method_exists(Produk::class, 'scopeAktif') ? Produk::aktif() : Produk::query();
         $p = $finder->findOrFail($r->idproduk);
+
+        $stokNow = (float) $p->stok;
+        $maxQty  = (int) floor($stokNow);
+        if ($maxQty < 1) {
+            return back()->with('error', 'Stok produk habis. Mohon isi stok terlebih dahulu.');
+        }
 
         $cart = session('cart', []);
         $key  = (string) $p->idproduk;
+        $inCart = isset($cart[$key]) ? (int)$cart[$key]['qty'] : 0;
+
+        if ($inCart + 1 > $maxQty) {
+            return back()->with('error', 'Stok kurang. Stok tersisa: ' . max(0, $maxQty - $inCart));
+        }
 
         if (!isset($cart[$key])) {
             $cart[$key] = [
@@ -69,17 +84,18 @@ class TransaksiController extends Controller
                 'satuan'   => $p->satuan_base ?: 'pcs',
             ];
         } else {
-            $cart[$key]['qty']      += 1;
-            $cart[$key]['subtotal']  = $cart[$key]['qty'] * $cart[$key]['harga'];
+            $cart[$key]['qty']      = $inCart + 1;
+            $cart[$key]['subtotal'] = $cart[$key]['qty'] * $cart[$key]['harga'];
         }
 
         session(['cart' => $cart]);
-
         return back()->with('success', 'Produk ditambahkan ke keranjang.');
     }
 
     /**
      * Update qty item di keranjang
+     * - Batasi qty <= floor(stok sekarang)
+     * - Jika stok 0, item dihapus dari keranjang
      */
     public function updateQty(Request $r)
     {
@@ -90,14 +106,36 @@ class TransaksiController extends Controller
 
         $cart = session('cart', []);
         $key  = (string) $r->idproduk;
+        if (!isset($cart[$key])) return back();
 
-        if (isset($cart[$key])) {
-            $cart[$key]['qty']      = (int) $r->qty;
-            $cart[$key]['subtotal'] = $cart[$key]['qty'] * $cart[$key]['harga'];
+        $p = Produk::find($r->idproduk);
+        if (!$p) {
+            unset($cart[$key]);
             session(['cart' => $cart]);
+            return back()->with('error', 'Produk tidak tersedia.');
         }
 
-        return back();
+        $stokNow = (float) $p->stok;
+        $maxQty  = (int) floor($stokNow);
+
+        if ($maxQty < 1) {
+            unset($cart[$key]);
+            session(['cart' => $cart]);
+            return back()->with('error', 'Stok habis. Item dihapus dari keranjang.');
+        }
+
+        $reqQty = (int) $r->qty;
+        $msg    = null;
+        if ($reqQty > $maxQty) {
+            $reqQty = $maxQty;
+            $msg = 'Stok kurang. Qty diset ke ' . $maxQty . '.';
+        }
+
+        $cart[$key]['qty']      = $reqQty;
+        $cart[$key]['subtotal'] = $reqQty * $cart[$key]['harga'];
+        session(['cart' => $cart]);
+
+        return $msg ? back()->with('error', $msg) : back();
     }
 
     /**
@@ -123,14 +161,14 @@ class TransaksiController extends Controller
     /**
      * Simpan transaksi (transaksi + detailtransaksi)
      * - Validasi uang tunai kalau metode = tunai
-     * - Kurangi stok produk
+     * - Kurangi stok produk (aman: lock row + WHERE stok>=qty)
      * - Kosongkan keranjang
+     * - Simpan last_trx_id untuk banner di halaman new()
      */
     public function simpan(Request $r)
     {
         $r->validate([
             'metode_bayar' => 'required|in:tunai,qris',
-            // uang_tunai akan dicek manual setelah kita tahu total
         ]);
 
         $cart = session('cart', []);
@@ -138,7 +176,6 @@ class TransaksiController extends Controller
             return back()->with('error', 'Keranjang masih kosong.');
         }
 
-        // Pastikan semua produk di keranjang masih ada
         foreach ($cart as $row) {
             if (!Produk::where('idproduk', $row['idproduk'])->exists()) {
                 return back()->with('error', 'Ada produk yang sudah dihapus dari katalog. Mohon cek keranjang.');
@@ -147,7 +184,6 @@ class TransaksiController extends Controller
 
         $total = collect($cart)->sum('subtotal');
 
-        // Validasi uang tunai (jika bayar tunai)
         if ($r->metode_bayar === 'tunai') {
             $uangTunai = (float) ($r->uang_tunai ?? 0);
             if ($uangTunai < $total) {
@@ -155,57 +191,79 @@ class TransaksiController extends Controller
             }
         }
 
-        $kasirId = session('kasir_id'); // dari login
+        $kasirId = session('kasir_id');
         if (!$kasirId) {
             return back()->with('error', 'Sesi kasir tidak ditemukan.');
         }
 
-        DB::beginTransaction();
         try {
-            // Simpan transaksi induk
-            $trx = Transaksi::create([
-                'idkasir'      => $kasirId,
-                'tanggal'      => Carbon::now(),
-                'total'        => (float) $total,
-                'metode_bayar' => $r->metode_bayar,
-                // Kalau tabel transaksi punya kolom untuk bayar/kembalian, tambahkan di sini:
-                // 'bayar'       => $r->metode_bayar === 'tunai' ? (float) $r->uang_tunai : 0,
-                // 'kembalian'   => $r->metode_bayar === 'tunai' ? ((float)$r->uang_tunai - $total) : 0,
-            ]);
+            $trxId = DB::transaction(function () use ($cart, $kasirId, $total, $r) {
+                // Lock baris produk
+                $ids = collect($cart)->pluck('idproduk')->values();
+                $produkMap = Produk::whereIn('idproduk', $ids)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('idproduk');
 
-            // Simpan detail per item
-            foreach ($cart as $row) {
-                DetailTransaksi::create([
-                    'idtransaksi'  => $trx->idtransaksi,
-                    'idproduk'     => $row['idproduk'],
-                    'qty'          => (int) $row['qty'],
-                    'harga_satuan' => (float) $row['harga'],
-                    'subtotal'     => (float) $row['subtotal'],
-                    'satuan_jual'  => $row['satuan'] ?? 'pcs',
+                foreach ($cart as $row) {
+                    $p = $produkMap[$row['idproduk']] ?? null;
+                    if (!$p) throw new \RuntimeException('Produk hilang saat menyimpan transaksi.');
+                    $stokTersedia = (float) $p->stok;
+                    $butuh        = (int) $row['qty'];
+                    if ($stokTersedia < $butuh) {
+                        throw new \RuntimeException("Stok {$p->nama} berubah/habis. Sisa: {$stokTersedia}");
+                    }
+                }
+
+                // Simpan transaksi
+                $trx = Transaksi::create([
+                    'idkasir'      => $kasirId,
+                    'tanggal'      => Carbon::now(),
+                    'total'        => (float) $total,
+                    'metode_bayar' => $r->metode_bayar,
                 ]);
 
-                // Update stok
-                Produk::where('idproduk', $row['idproduk'])
-                    ->decrement('stok', (int) $row['qty']);
-            }
+                // Detail + kurangi stok
+                foreach ($cart as $row) {
+                    DetailTransaksi::create([
+                        'idtransaksi'  => $trx->idtransaksi,
+                        'idproduk'     => $row['idproduk'],
+                        'qty'          => (int) $row['qty'],
+                        'harga_satuan' => (float) $row['harga'],
+                        'subtotal'     => (float) $row['subtotal'],
+                        'satuan_jual'  => $row['satuan'] ?? 'pcs',
+                    ]);
 
-            DB::commit();
-            session()->forget('cart');
+                    $affected = DB::table('produk')
+                        ->where('idproduk', $row['idproduk'])
+                        ->where('stok', '>=', (float)$row['qty'])
+                        ->update([
+                            'stok' => DB::raw('stok - ' . ((float)$row['qty']))
+                        ]);
 
-            // kalau tunai, kirim juga info kembalian ke flash message
+                    if ($affected === 0) {
+                        throw new \RuntimeException('Stok berubah saat penyimpanan. Silakan ulangi transaksi.');
+                    }
+                }
+
+                // kosongkan keranjang
+                session()->forget('cart');
+
+                return $trx->idtransaksi;
+            });
+
+            // simpan id transaksi terakhir untuk banner
+            session(['last_trx_id' => $trxId]);
+
             if ($r->metode_bayar === 'tunai') {
-                $kembalian = (float) ($r->uang_tunai ?? 0) - $total;
-
+                $kembalian = (float) ($r->uang_tunai ?? 0) - (float) $total;
                 return redirect()
                     ->route('transaksi.new')
                     ->with('success', 'Transaksi disimpan. Kembalian: Rp ' . number_format(max($kembalian, 0), 0, ',', '.'));
             }
 
-            return redirect()
-                ->route('transaksi.new')
-                ->with('success', 'Transaksi disimpan.');
+            return redirect()->route('transaksi.new')->with('success', 'Transaksi disimpan.');
         } catch (\Throwable $e) {
-            DB::rollBack();
             return back()->with('error', 'Gagal menyimpan transaksi: ' . $e->getMessage());
         }
     }
@@ -228,12 +286,13 @@ class TransaksiController extends Controller
      */
     public function show($id)
     {
-        // ambil transaksi + semua detail + produk tiap detail
         $trx = Transaksi::with(['details.produk', 'kasir'])->findOrFail($id);
+        $totalItems = $trx->details->sum('qty');
 
         return view('transaksi.show', [
-            'title' => 'Detail Transaksi',
-            'trx'   => $trx,
+            'title'      => 'Detail Transaksi',
+            'trx'        => $trx,
+            'totalItems' => $totalItems,
         ]);
     }
 }

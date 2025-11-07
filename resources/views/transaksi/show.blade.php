@@ -3,9 +3,7 @@
 @section('content')
 
 <style>
-/* MODE PRINT */
 @media print {
-  /* Buang elemen navigasi & tombol2 */
   .no-print,
   .navbar,
   .sidebar,
@@ -14,69 +12,15 @@
   .app-navbar {
     display: none !important;
   }
-
-  /* Hilangkan padding default main supaya hemat kertas */
-  main.content-with-sidebar {
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-
-  body {
-    background: #fff !important;
-    color: #000 !important;
-  }
-
-  .print-card {
-    background: #fff !important;
-    color: #000 !important;
-    border: 1px solid #000 !important;
-    box-shadow: none !important;
-  }
-
-  .print-area {
-    font-size: 13px;
-    line-height: 1.4;
-    color: #000 !important;
-  }
-
-  .print-title {
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: .5rem;
-    color: #000 !important;
-  }
-
-  .badge-print {
-    border: 1px solid #000 !important;
-    background: #fff !important;
-    color: #000 !important;
-    font-weight: 500;
-  }
-
-  table.table-print th,
-  table.table-print td {
-    color: #000 !important;
-    background: transparent !important;
-    border-color: #000 !important;
-  }
-
-  /* kolom bootstrap dibuat full agar nota 1 kolom */
-  .row,
-  .col-12,
-  .col-lg-4,
-  .col-lg-8 {
-    float: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .card-header,
-  .card-footer {
-    background: #fff !important;
-    color: #000 !important;
-    border-color: #000 !important;
-  }
+  main.content-with-sidebar { padding: 0 !important; margin: 0 !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .print-card { background: #fff !important; color: #000 !important; border: 1px solid #000 !important; box-shadow: none !important; }
+  .print-area { font-size: 13px; line-height: 1.4; color: #000 !important; }
+  .print-title { font-size: 16px; font-weight: 600; text-align: center; margin-bottom: .5rem; color: #000 !important; }
+  .badge-print { border: 1px solid #000 !important; background: #fff !important; color: #000 !important; font-weight: 500; }
+  table.table-print th, table.table-print td { color: #000 !important; background: transparent !important; border-color: #000 !important; }
+  .row, .col-12, .col-lg-4, .col-lg-8 { float: none !important; width: 100% !important; max-width: 100% !important; }
+  .card-header, .card-footer { background: #fff !important; color: #000 !important; border-color: #000 !important; }
 }
 </style>
 
@@ -87,7 +31,6 @@
     <button class="btn btn-outline-cyan btn-sm" onclick="window.print()">
       <i class="bi bi-printer me-1"></i> Cetak Struk
     </button>
-
     <a href="{{ route('transaksi.index') }}" class="btn btn-outline-secondary btn-sm">
       <i class="bi bi-arrow-left me-1"></i> Kembali
     </a>
@@ -99,13 +42,11 @@
   <div class="col-12 col-lg-4">
     <div class="card h-100 print-card">
       <div class="card-body">
-        {{-- Judul cetak (hanya tampil saat print) --}}
         <div class="print-title d-none d-print-block">
           ARZIFY
           <br>Nota Transaksi
         </div>
 
-        {{-- Tanggal --}}
         <div class="mb-2">
           <div class="text-secondary small">Tanggal</div>
           <div class="fw-semibold">
@@ -113,7 +54,6 @@
           </div>
         </div>
 
-        {{-- Metode bayar --}}
         <div class="mb-2">
           <div class="text-secondary small">Metode Bayar</div>
           <div class="fw-semibold">
@@ -123,7 +63,6 @@
           </div>
         </div>
 
-        {{-- Kasir (jika ada datanya) --}}
         @if(!empty($trx->kasir?->nama) || session('kasir_nama'))
           <div class="mb-2">
             <div class="text-secondary small">Kasir</div>
@@ -135,7 +74,6 @@
 
         <hr class="my-3">
 
-        {{-- Total --}}
         <div class="d-flex justify-content-between align-items-start">
           <div class="fw-semibold">Total</div>
           <div class="fw-bold h5 m-0">
@@ -143,6 +81,10 @@
           </div>
         </div>
 
+        {{-- Total Item (qty) --}}
+        <div class="mt-2 small text-muted-2">
+          Total Item (qty): {{ $totalItems ?? $trx->details->sum('qty') }}
+        </div>
       </div>
     </div>
   </div>
@@ -151,9 +93,9 @@
   <div class="col-12 col-lg-8">
     <div class="card h-100 print-card">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Item</span>
+        <span></span>
         <span class="text-secondary small d-print-none">
-          Total Item: {{ $trx->details->count() }}
+
         </span>
       </div>
 
@@ -170,9 +112,7 @@
             </thead>
             <tbody>
               @foreach($trx->details as $d)
-                @php
-                  $namaProduk = $d->produk->nama ?? '(produk sudah dihapus)';
-                @endphp
+                @php $namaProduk = $d->produk->nama ?? '(produk sudah dihapus)'; @endphp
                 <tr>
                   <td class="fw-semibold">
                     {{ $namaProduk }}
@@ -181,12 +121,8 @@
                     @endif
                   </td>
                   <td class="text-center">{{ $d->qty }}</td>
-                  <td class="text-end">
-                    Rp {{ number_format($d->harga_satuan, 0, ',', '.') }}
-                  </td>
-                  <td class="text-end">
-                    Rp {{ number_format($d->subtotal, 0, ',', '.') }}
-                  </td>
+                  <td class="text-end">Rp {{ number_format($d->harga_satuan, 0, ',', '.') }}</td>
+                  <td class="text-end">Rp {{ number_format($d->subtotal, 0, ',', '.') }}</td>
                 </tr>
               @endforeach
             </tbody>
