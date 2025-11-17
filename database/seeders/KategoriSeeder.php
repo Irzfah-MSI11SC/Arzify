@@ -9,7 +9,6 @@ class KategoriSeeder extends Seeder
 {
     public function run(): void
     {
-        // Daftar kategori yang dipakai ProdukSeeder
         $kategori = [
             'Minuman Seduh',
             'Minuman Botol',
@@ -18,7 +17,6 @@ class KategoriSeeder extends Seeder
         ];
 
         foreach ($kategori as $nama) {
-            // Jika sudah ada, biarkan; kalau belum, buat
             $exists = DB::table('kategori')->where('nama', $nama)->first();
 
             if (!$exists) {
