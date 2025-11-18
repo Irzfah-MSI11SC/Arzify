@@ -1,71 +1,77 @@
+{{-- resources/views/transaksi/index.blade.php --}}
 @extends('layouts.app')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+<div class="d-flex flex-column flex-md-row gap-2 mb-3 justify-content-between align-items-md-center">
   <h4 class="m-0">Riwayat Transaksi</h4>
 </div>
 
-<div class="card">
-  <div class="card-body p-0">
-    <div class="table-responsive">
-      <table class="table table-hover align-middle mb-0">
-        <thead class="text-secondary">
-          <tr>
-            <th style="width: 160px">Tanggal</th>
-            <th class="text-center" style="width: 110px">Items</th>
-            <th style="width: 140px">Metode</th>
-            <th class="text-end" style="width: 160px">Total</th>
-            <th style="width: 100px"></th>
-          </tr>
-        </thead>
-        <tbody>
-        @forelse($data as $t)
-          <tr>
-            {{-- Kolom Tanggal --}}
-            <td>
-              {{-- karena $t->tanggal adalah string, kita format manual pakai date() --}}
-              {{ date('d M Y H:i', strtotime($t->tanggal)) }}
-            </td>
+@if(isset($data) && $data->count())
+  <div class="card">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="text-secondary">
+            <tr>
+              <th style="width:70px">#ID</th>
+              <th style="width:180px">Tanggal</th>
+              <th>Kasir</th>
+              <th style="width:130px">Metode</th>
+              <th class="text-end" style="width:160px">Total</th>
+              <th class="text-end" style="width:110px">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+          @foreach($data as $trx)
+            <tr>
+              <td class="fw-semibold">#{{ $trx->idtransaksi }}</td>
 
-            {{-- Jumlah item --}}
-            <td class="text-center">
-              {{ $t->details_count }}
-            </td>
+              <td>
+                {{ \Illuminate\Support\Carbon::parse($trx->tanggal)->format('d M Y H:i') }}
+              </td>
 
-            {{-- Metode bayar --}}
-            <td class="text-uppercase">
-              {{ $t->metode_bayar }}
-            </td>
+              <td>
+                {{-- kalau relasi kasir ada, tampilkan namanya; fallback ke "-" --}}
+                {{ $trx->kasir->nama ?? $trx->kasir->username ?? '-' ?? '-' }}
+              </td>
 
-            {{-- Total --}}
-            <td class="text-end">
-              Rp {{ number_format($t->total, 0, ',', '.') }}
-            </td>
+              <td class="text-uppercase">
+                <span class="badge bg-primary-subtle text-primary">
+                  {{ $trx->metode_bayar }}
+                </span>
+              </td>
 
-            {{-- Tombol Aksi Detail --}}
-            <td class="text-end">
-              <a href="{{ route('transaksi.show', $t->idtransaksi) }}"
-                 class="btn btn-sm btn-outline-cyan">
-                Detail
-              </a>
-            </td>
-          </tr>
-        @empty
-          <tr>
-            <td colspan="5" class="text-center text-secondary py-4">
-              Belum ada transaksi.
-            </td>
-          </tr>
-        @endforelse
-        </tbody>
-      </table>
+              <td class="text-end">
+                Rp {{ number_format($trx->total, 0, ',', '.') }}
+              </td>
+
+              <td class="text-end">
+                <a href="{{ route('transaksi.show', $trx->idtransaksi) }}"
+                   class="btn btn-sm btn-outline-cyan">
+                  <i class="bi bi-receipt me-1"></i> Detail
+                </a>
+              </td>
+            </tr>
+          @endforeach
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="small text-secondary">
+          Menampilkan {{ $data->firstItem() }}–{{ $data->lastItem() }} dari {{ $data->total() }} transaksi
+        </div>
+        <div>
+          {{ $data->links() }}
+        </div>
+      </div>
     </div>
   </div>
-
-  @if($data instanceof \Illuminate\Contracts\Pagination\Paginator && $data->hasPages())
-    <div class="card-footer">
-      {{ $data->links() }}
-    </div>
-  @endif
-</div>
+@else
+  <div class="card card-body text-center text-secondary">
+    Belum ada transaksi.
+  </div>
+@endif
 @endsection

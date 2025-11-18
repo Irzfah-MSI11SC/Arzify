@@ -6,8 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class Transaksi extends Model
 {
-    protected $table = 'transaksi';        // nama tabel transaksi
-    protected $primaryKey = 'idtransaksi'; // pk transaksi (lihat DB)
+    protected $table = 'transaksi';
+    protected $primaryKey = 'idtransaksi';
     public $timestamps = false;
 
     protected $fillable = [
@@ -15,20 +15,23 @@ class Transaksi extends Model
         'tanggal',
         'total',
         'metode_bayar',
-        // kalau kamu punya kolom bayar/kembalian nanti bisa ditambah di sini
+        'uang_tunai',   // ✅ baru
+        'kembalian',    // ✅ baru
     ];
 
-    // satu transaksi punya banyak detail_transaksi
+    protected $casts = [
+        'total'      => 'float',
+        'uang_tunai' => 'float',
+        'kembalian'  => 'float',
+    ];
+
     public function details()
     {
-        // hasMany(ModelTujuan, fk_di_tabel_detail, pk_di_tabel_ini)
         return $this->hasMany(DetailTransaksi::class, 'idtransaksi', 'idtransaksi');
     }
 
-    // siapa kasir yg handle transaksi ini
     public function kasir()
     {
-        // asumsinya tabel kasir = 'kasir', pk = 'idkasir'
         return $this->belongsTo(Kasir::class, 'idkasir', 'idkasir');
     }
 }

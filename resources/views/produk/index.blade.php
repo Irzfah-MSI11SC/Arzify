@@ -56,13 +56,16 @@
                  Ubah
               </a>
 
+              {{-- Hapus pakai modal custom, bukan confirm() --}}
               <form method="post"
                     action="{{ route('produk.destroy', $p->idproduk) }}"
-                    class="flex-fill"
-                    onsubmit="return confirm('Hapus produk {{ $p->nama }}? Produk yang pernah dipakai transaksi akan ditolak.');">
+                    class="flex-fill form-delete-produk"
+                    data-nama="{{ $p->nama }}">
                 @csrf
                 @method('delete')
-                <button class="btn btn-sm btn-outline-danger w-100">Hapus</button>
+                <button type="submit" class="btn btn-sm btn-outline-danger w-100 btn-delete-produk">
+                  Hapus
+                </button>
               </form>
             </div>
           </div>
@@ -78,4 +81,70 @@
 @else
   <div class="card card-body text-center text-secondary">Tidak ada produk.</div>
 @endif
+
+{{-- ================= MODAL HAPUS PRODUK ================= --}}
+<div class="modal fade" id="deleteProdukModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface text-base border border-secondary">
+      <div class="modal-header">
+        <h5 class="modal-title">Konfirmasi Hapus Produk</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteProdukText" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+          Tidak
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteProduk">
+          Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{{-- ====================================================== --}}
+@endsection
+
+@section('scripts')
+<script>
+(function () {
+  let deleteForm = null;              // form yang akan disubmit
+  const modalEl   = document.getElementById('deleteProdukModal');
+  const textEl    = document.getElementById('deleteProdukText');
+  const btnOk     = document.getElementById('confirmDeleteProduk');
+
+  if (!modalEl || !textEl || !btnOk) return;
+
+  const modal = new bootstrap.Modal(modalEl, {
+    backdrop: 'static',
+    keyboard: false
+  });
+
+  // Tangkap submit semua form delete produk
+  document.querySelectorAll('.form-delete-produk').forEach(form => {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault(); // cegah submit langsung (menghilangkan alert confirm bawaan)
+
+      deleteForm = this;
+      const nama = this.getAttribute('data-nama') || 'produk ini';
+
+      textEl.textContent =
+        'Hapus produk ' + nama +
+        '? Produk yang sudah dipakai di transaksi tidak bisa dihapus.';
+
+      modal.show();
+    });
+  });
+
+  // Jika user klik "Ya, Hapus"
+  btnOk.addEventListener('click', function () {
+    if (deleteForm) {
+      modal.hide();
+      deleteForm.submit();
+    }
+  });
+})();
+</script>
 @endsection

@@ -62,10 +62,14 @@
                     @endif
                   </div>
 
-                  <div class="card-body">
+                  <div class="card-body d-flex flex-column">
                     <div class="fw-semibold text-truncate" title="{{ $p->nama }}">{{ $p->nama }}</div>
                     <div class="small text-muted-2 mb-1">
                       {{ $p->kategori->nama ?? '-' }} • {{ $p->satuan_base ?? 'pcs' }}
+                    </div>
+                    {{-- Stok produk ditampilkan --}}
+                    <div class="small mb-1 {{ $p->stok <= 0 ? 'text-danger' : 'text-secondary' }}">
+                      Stok: {{ $p->stok <= 0 ? 'Habis' : rtrim(rtrim(number_format($p->stok, 2, ',', '.'), '0'), ',') }}
                     </div>
                     <div class="small text-secondary mb-2">Rp {{ number_format($p->harga,0,',','.') }}</div>
                     <form method="post" action="{{ route('transaksi.addItem') }}">
@@ -171,10 +175,14 @@
                 <td class="text-end">Rp {{ number_format($sub,0,',','.') }}</td>
 
                 <td class="text-end">
-                  <form method="post" action="{{ route('transaksi.removeItem') }}" onsubmit="return confirm('Hapus item ini?')">
+                  {{-- HAPUS ITEM: pakai modal custom, bukan confirm() --}}
+                  <form method="post"
+                        action="{{ route('transaksi.removeItem') }}"
+                        class="form-delete-item"
+                        data-nama="{{ $row['nama'] }}">
                     @csrf
                     <input type="hidden" name="idproduk" value="{{ $pid }}">
-                    <button class="btn btn-outline-danger btn-sm" title="Hapus">
+                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Hapus">
                       <i class="bi bi-x"></i>
                     </button>
                   </form>
@@ -226,7 +234,9 @@
               @if($qrisAsset)
                 <img id="qrisImg" src="{{ $qrisAsset }}" alt="QRIS" width="220" height="220" style="image-rendering: pixelated">
               @else
-                <div class="small text-secondary">Taruh file <code>qris.png</code> di <code>public/image/</code> atau <code>public/images/</code> untuk menampilkan QR.</div>
+                <div class="small text-secondary">
+                  Taruh file <code>qris.png</code> di <code>public/image/</code> atau <code>public/images/</code> untuk menampilkan QR.
+                </div>
               @endif
             </div>
             <div class="small text-secondary mt-2">
@@ -242,6 +252,30 @@
     </div>
   </div>
 </div>
+
+{{-- ============= MODAL HAPUS ITEM KERANJANG ============= --}}
+<div class="modal fade" id="deleteItemModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface text-base border border-secondary">
+      <div class="modal-header">
+        <h5 class="modal-title">Konfirmasi Hapus Item</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+      <div class="modal-body">
+        <p id="deleteItemText" class="mb-0"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+          Tidak
+        </button>
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteItem">
+          Ya, Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{{-- ====================================================== --}}
 @endsection
 
 @section('scripts')
@@ -272,19 +306,27 @@
     if (val === 'tunai') {
       boxTunai.classList.remove('d-none');
       boxQris.classList.add('d-none');
-      uang && uang.setAttribute('required','required');
-      uang && uang.focus();
-      hitung();
+      if (uang) {
+        uang.setAttribute('required','required');
+        uang.focus();
+        hitung();
+      }
     } else if (val === 'qris') {
       boxQris.classList.remove('d-none');
       boxTunai.classList.add('d-none');
-      uang && uang.removeAttribute('required');
-      if (uang) { uang.value = ''; textKmb.textContent = 'Kembalian: Rp 0'; }
+      if (uang) {
+        uang.removeAttribute('required');
+        uang.value = '';
+        textKmb.textContent = 'Kembalian: Rp 0';
+      }
     } else {
       boxTunai.classList.add('d-none');
       boxQris.classList.add('d-none');
-      uang && uang.removeAttribute('required');
-      if (uang) { uang.value = ''; textKmb.textContent = 'Kembalian: Rp 0'; }
+      if (uang) {
+        uang.removeAttribute('required');
+        uang.value = '';
+        textKmb.textContent = 'Kembalian: Rp 0';
+      }
     }
   }
 
@@ -302,7 +344,45 @@
     }
   });
 
+  // Init awal
   toggleBox();
+})();
+
+// ========== JS MODAL HAPUS ITEM (seperti produk) ==========
+(function () {
+  let deleteForm = null;
+  const modalEl = document.getElementById('deleteItemModal');
+  const textEl  = document.getElementById('deleteItemText');
+  const btnOk   = document.getElementById('confirmDeleteItem');
+
+  if (!modalEl || !textEl || !btnOk) return;
+
+  const modal = new bootstrap.Modal(modalEl, {
+    backdrop: 'static',
+    keyboard: false
+  });
+
+  // Tangkap submit semua form delete item keranjang
+  document.querySelectorAll('.form-delete-item').forEach(form => {
+    form.addEventListener('submit', function(e){
+      e.preventDefault(); // cegah submit langsung (confirm bawaan)
+
+      deleteForm = this;
+      const nama = this.getAttribute('data-nama') || 'item ini';
+
+      textEl.textContent = 'Hapus item "' + nama + '" dari keranjang?';
+
+      modal.show();
+    });
+  });
+
+  // Jika user klik "Ya, Hapus"
+  btnOk.addEventListener('click', function(){
+    if (deleteForm) {
+      modal.hide();
+      deleteForm.submit();
+    }
+  });
 })();
 </script>
 @endsection

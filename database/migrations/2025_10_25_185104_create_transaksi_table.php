@@ -14,6 +14,8 @@ return new class extends Migration {
                 $table->decimal('total', 15, 2)->default(0);
                 $table->enum('metode_bayar', ['tunai','qris']);
                 $table->timestamps();
+                $table->decimal('uang_tunai', 15, 2)->nullable();
+            $table->decimal('kembalian', 15, 2)->default(0);
 
                 $table->foreign('idkasir')
                       ->references('idkasir')->on('kasir')
