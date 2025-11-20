@@ -12,28 +12,28 @@ class ProdukController extends Controller
 {
     /* ========================= LIST ========================= */
     public function index(Request $r)
-{
-    $q = trim((string) $r->q);
+    {
+        $q = trim((string) $r->q);
 
-    $produk = Produk::query()
-        ->with(['kategori:idkategori,nama'])               // ← eager load kategori (hindari N+1)
-        ->when($q !== '', fn ($qq) => $qq->where('nama', 'like', "%{$q}%"))
-        ->orderBy('nama')
-        ->paginate(12)
-        ->withQueryString();
+        $produk = Produk::query()
+            ->with(['kategori:idkategori,nama'])               // eager load kategori
+            ->when($q !== '', fn ($qq) => $qq->where('nama', 'like', "%{$q}%"))
+            ->orderBy('nama')
+            ->paginate(12)
+            ->withQueryString();
 
-    return view('produk.index', [
-        'title'  => 'Produk',
-        'produk' => $produk,
-        'q'      => $q,
-    ]);
-}
-
+        return view('produk.index', [
+            'title'  => 'Produk',
+            'produk' => $produk,
+            'q'      => $q,
+        ]);
+    }
 
     /* ===================== FORM CREATE ====================== */
     public function create()
     {
         $kategori = Kategori::orderBy('nama')->get(['idkategori', 'nama']);
+
         return view('produk.create', [
             'title'    => 'Tambah Produk',
             'kategori' => $kategori,
@@ -46,10 +46,10 @@ class ProdukController extends Controller
         $valid = $r->validate([
             'nama'        => ['required', 'string', 'max:100'],
             'idkategori'  => ['required', 'integer'],
-            'harga'       => ['required'],                        // akan dinormalisasi
-            'stok'        => ['required', 'numeric', 'min:0'],    // desimal OK
+            'harga'       => ['required'],
+            'stok'        => ['required', 'numeric', 'min:0'],
             'satuan_base' => ['nullable', 'in:pcs,kg,liter'],
-            'gambar'      => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:51200'], // 50MB
+            'gambar'      => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:51200'],
         ]);
 
         $data = [
@@ -63,16 +63,18 @@ class ProdukController extends Controller
             $data['satuan_base'] = $valid['satuan_base'] ?? null;
         }
 
-        // Gambar ke LONGBLOB (kompres/downscale bila perlu)
+        // Gambar → LONGBLOB
         if ($r->hasFile('gambar') && $r->file('gambar')->isValid()) {
             $limit = $this->blobLimit('produk', 'gambar');
             $blob  = $this->prepareBlobImage($r->file('gambar')->getRealPath(), $limit)
-                  ?? @file_get_contents($r->file('gambar')->getRealPath());
+                   ?? @file_get_contents($r->file('gambar')->getRealPath());
 
             if ($blob !== false && $blob !== null && strlen($blob) <= $limit) {
                 $data['gambar'] = $blob;
             } else {
-                return back()->withInput()->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
+                return back()
+                    ->withInput()
+                    ->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
             }
         }
 
@@ -82,6 +84,7 @@ class ProdukController extends Controller
         return redirect()->route('produk.index')->with('success', 'Produk berhasil ditambahkan.');
     }
 
+    /* ====================== FORM EDIT ======================= */
     public function edit($id)
     {
         $produk   = Produk::findOrFail($id);
@@ -93,6 +96,8 @@ class ProdukController extends Controller
             'kategori' => $kategori,
         ]);
     }
+
+    /* ======================== UPDATE ======================== */
     public function update(Request $r, $id)
     {
         $p = Produk::findOrFail($id);
@@ -120,12 +125,14 @@ class ProdukController extends Controller
         if ($r->hasFile('gambar') && $r->file('gambar')->isValid()) {
             $limit = $this->blobLimit('produk', 'gambar');
             $blob  = $this->prepareBlobImage($r->file('gambar')->getRealPath(), $limit)
-                  ?? @file_get_contents($r->file('gambar')->getRealPath());
+                   ?? @file_get_contents($r->file('gambar')->getRealPath());
 
             if ($blob !== false && $blob !== null && strlen($blob) <= $limit) {
                 $data['gambar'] = $blob;
             } else {
-                return back()->withInput()->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
+                return back()
+                    ->withInput()
+                    ->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
             }
         }
 
@@ -133,6 +140,24 @@ class ProdukController extends Controller
         $p->update($data);
 
         return redirect()->route('produk.index')->with('success', 'Produk berhasil diubah.');
+    }
+
+    /* =============== TAMBAH STOK VIA TOMBOL =============== */
+    public function tambahStok(Request $r, $id)
+    {
+        $valid = $r->validate([
+            'qty' => ['required', 'numeric', 'min:0.01'],   // jumlah stok yang akan ditambahkan
+        ]);
+
+        $p = Produk::findOrFail($id);
+
+        // Tambah stok (pakai increment supaya aman)
+        $p->increment('stok', (float) $valid['qty']);
+
+        return back()->with(
+            'success',
+            'Stok produk "' . $p->nama . '" bertambah ' . $valid['qty'] . '.'
+        );
     }
 
     /* ======================== DESTROY ======================= */
@@ -145,8 +170,12 @@ class ProdukController extends Controller
         if (method_exists(Produk::class, 'detailTable')) {
             try {
                 $t = Produk::detailTable();
-                if (is_string($t) && $t !== '') $candidates[] = $t;
-            } catch (\Throwable $e) { /* abaikan */ }
+                if (is_string($t) && $t !== '') {
+                    $candidates[] = $t;
+                }
+            } catch (\Throwable $e) {
+                // abaikan
+            }
         }
 
         // Tambahkan beberapa nama umum
@@ -165,15 +194,20 @@ class ProdukController extends Controller
         foreach ($candidates as $tbl) {
             if (!Schema::hasTable($tbl)) continue;
 
-            // Cari kolom yang ada
             $col = null;
             foreach ($colCandidates as $c) {
-                if (Schema::hasColumn($tbl, $c)) { $col = $c; break; }
+                if (Schema::hasColumn($tbl, $c)) {
+                    $col = $c;
+                    break;
+                }
             }
             if (!$col) continue;
 
             try {
-                $dipakai = DB::table($tbl)->where($col, $p->idproduk ?? $p->id)->limit(1)->exists();
+                $dipakai = DB::table($tbl)
+                    ->where($col, $p->idproduk ?? $p->id)
+                    ->limit(1)
+                    ->exists();
             } catch (\Throwable $e) {
                 $dipakai = false;
             }
@@ -193,7 +227,6 @@ class ProdukController extends Controller
 
     private function normalizeHarga($val): float
     {
-        // "Rp 120.000,50" → 120000.50  |  "1.5" → 1.5
         $s = trim((string) $val);
         $s = str_ireplace(['rp', 'idr', ' '], '', $s);
         $s = str_replace('.', '', $s);
@@ -207,7 +240,6 @@ class ProdukController extends Controller
         return array_intersect_key($data, array_flip($cols));
     }
 
-    /** Dapatkan batas maksimal byte tipe BLOB untuk kolom tertentu. */
     private function blobLimit(string $table, string $column): int
     {
         $db = DB::getDatabaseName();
@@ -223,17 +255,13 @@ class ProdukController extends Controller
 
         return match ($type) {
             'tinyblob'   => 255,
-            'blob'       => 65535,        // ~64 KB
-            'mediumblob' => 16777215,     // ~16 MB
-            'longblob'   => 4294967295,   // ~4 GB
+            'blob'       => 65535,
+            'mediumblob' => 16777215,
+            'longblob'   => 4294967295,
             default      => 65535,
         };
     }
 
-    /**
-     * Kompres + downscale gambar sampai ukuran <= $maxBytes.
-     * Return binary string atau null jika masih terlalu besar / gagal dibaca.
-     */
     private function prepareBlobImage(string $path, int $maxBytes): ?string
     {
         $origBin = @file_get_contents($path);
@@ -246,11 +274,16 @@ class ProdukController extends Controller
         [$w, $h] = [$info[0], $info[1]];
         $mimeIn  = $info['mime'] ?? 'image/jpeg';
 
-        // buat resource sumber
         switch ($mimeIn) {
-            case 'image/png'  : $src = @imagecreatefrompng($path);  break;
-            case 'image/webp' : $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : null; break;
-            default           : $src = @imagecreatefromjpeg($path); break;
+            case 'image/png':
+                $src = @imagecreatefrompng($path);  break;
+            case 'image/webp':
+                $src = function_exists('imagecreatefromwebp')
+                    ? @imagecreatefromwebp($path)
+                    : null;
+                break;
+            default:
+                $src = @imagecreatefromjpeg($path); break;
         }
         if (!$src) return null;
 
@@ -270,8 +303,11 @@ class ProdukController extends Controller
             imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetW, $targetH, $w, $h);
 
             ob_start();
-            if ($canWebp) imagewebp($dst, null, $qWebp);
-            else          imagejpeg($dst, null, $qJpg);
+            if ($canWebp) {
+                imagewebp($dst, null, $qWebp);
+            } else {
+                imagejpeg($dst, null, $qJpg);
+            }
             $bin = ob_get_clean();
 
             imagedestroy($dst);

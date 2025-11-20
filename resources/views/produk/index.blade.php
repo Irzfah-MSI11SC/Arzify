@@ -48,15 +48,15 @@
             </div>
           </div>
 
-          {{-- Footer: Ubah / Hapus --}}
+          {{-- Footer: Ubah / Hapus / Tambah Stok --}}
           <div class="card-footer">
-            <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex flex-wrap gap-2 mb-2">
               <a href="{{ route('produk.edit', $p->idproduk) }}"
                  class="btn btn-sm btn-outline-cyan flex-fill">
                  Ubah
               </a>
 
-              {{-- Hapus pakai modal custom, bukan confirm() --}}
+              {{-- Hapus pakai modal custom --}}
               <form method="post"
                     action="{{ route('produk.destroy', $p->idproduk) }}"
                     class="flex-fill form-delete-produk"
@@ -68,6 +68,14 @@
                 </button>
               </form>
             </div>
+
+            {{-- Tombol Tambah Stok --}}
+            <button type="button"
+                    class="btn btn-sm btn-outline-success w-100 btn-add-stock"
+                    data-id="{{ $p->idproduk }}"
+                    data-nama="{{ $p->nama }}">
+              + Tambah Stok
+            </button>
           </div>
 
         </div>
@@ -105,46 +113,119 @@
   </div>
 </div>
 {{-- ====================================================== --}}
+
+{{-- ================= MODAL TAMBAH STOK ================== --}}
+<div class="modal fade" id="addStockModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-surface text-base border border-secondary">
+      <div class="modal-header">
+        <h5 class="modal-title">Tambah Stok Produk</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+      </div>
+
+      {{-- action di-set via JS (supaya bisa kirim /produk/{id}/tambah-stok) --}}
+      <form method="post" action="" id="addStockForm">
+        @csrf
+        <div class="modal-body">
+          <input type="hidden" name="idproduk" id="stokProdukId">
+
+          <div class="mb-3">
+            <label class="form-label">Produk</label>
+            <input type="text" id="stokProdukNama" class="form-control" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Jumlah Stok yang Ditambahkan</label>
+            {{-- samakan dengan controller: name="qty" --}}
+            <input type="number" name="qty" id="stokJumlah" class="form-control" min="1" value="1" required>
+            <div class="form-text">Masukkan angka stok yang ingin ditambahkan.</div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+            Batal
+          </button>
+          <button type="submit" class="btn btn-success btn-sm">
+            Simpan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{-- ====================================================== --}}
 @endsection
 
 @section('scripts')
 <script>
 (function () {
-  let deleteForm = null;              // form yang akan disubmit
+  /* ========= MODAL HAPUS PRODUK ========= */
+  let deleteForm = null;
   const modalEl   = document.getElementById('deleteProdukModal');
   const textEl    = document.getElementById('deleteProdukText');
   const btnOk     = document.getElementById('confirmDeleteProduk');
 
-  if (!modalEl || !textEl || !btnOk) return;
-
-  const modal = new bootstrap.Modal(modalEl, {
-    backdrop: 'static',
-    keyboard: false
-  });
-
-  // Tangkap submit semua form delete produk
-  document.querySelectorAll('.form-delete-produk').forEach(form => {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault(); // cegah submit langsung (menghilangkan alert confirm bawaan)
-
-      deleteForm = this;
-      const nama = this.getAttribute('data-nama') || 'produk ini';
-
-      textEl.textContent =
-        'Hapus produk ' + nama +
-        '? Produk yang sudah dipakai di transaksi tidak bisa dihapus.';
-
-      modal.show();
+  if (modalEl && textEl && btnOk) {
+    const modal = new bootstrap.Modal(modalEl, {
+      backdrop: 'static',
+      keyboard: false
     });
-  });
 
-  // Jika user klik "Ya, Hapus"
-  btnOk.addEventListener('click', function () {
-    if (deleteForm) {
-      modal.hide();
-      deleteForm.submit();
-    }
-  });
+    document.querySelectorAll('.form-delete-produk').forEach(form => {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        deleteForm = this;
+        const nama = this.getAttribute('data-nama') || 'produk ini';
+
+        textEl.textContent =
+          'Hapus produk ' + nama +
+          '? Produk yang sudah dipakai di transaksi tidak bisa dihapus.';
+
+        modal.show();
+      });
+    });
+
+    btnOk.addEventListener('click', function () {
+      if (deleteForm) {
+        modal.hide();
+        deleteForm.submit();
+      }
+    });
+  }
+
+  /* ========= MODAL TAMBAH STOK ========= */
+  const addStockModalEl = document.getElementById('addStockModal');
+  const stokProdukId    = document.getElementById('stokProdukId');
+  const stokProdukNama  = document.getElementById('stokProdukNama');
+  const stokJumlah      = document.getElementById('stokJumlah');
+  const addStockForm    = document.getElementById('addStockForm');
+
+  if (addStockModalEl && stokProdukId && stokProdukNama && stokJumlah && addStockForm) {
+    const stockModal = new bootstrap.Modal(addStockModalEl, {
+      backdrop: 'static',
+      keyboard: false
+    });
+
+    const baseUrl = "{{ url('produk') }}"; // -> /produk
+
+    document.querySelectorAll('.btn-add-stock').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id   = this.getAttribute('data-id');
+        const nama = this.getAttribute('data-nama') || '';
+
+        stokProdukId.value   = id || '';
+        stokProdukNama.value = nama;
+        stokJumlah.value     = 1;
+
+        // set action: /produk/{id}/tambah-stok
+        addStockForm.action = baseUrl + '/' + id + '/tambah-stok';
+
+        stockModal.show();
+      });
+    });
+  }
 })();
 </script>
 @endsection

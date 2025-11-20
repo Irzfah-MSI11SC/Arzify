@@ -41,4 +41,9 @@ Route::middleware(['kasir.auth'])->group(function () {
     // Akun (ganti password)
     Route::get('/akun/password',  [AkunController::class, 'passwordPage'])->name('akun.password');
     Route::post('/akun/password', [AkunController::class, 'updatePassword'])->name('akun.password.update');
+
+    
+Route::post('/produk/{id}/tambah-stok', [ProdukController::class, 'tambahStok'])
+    ->name('produk.tambah-stok');
+
 });
