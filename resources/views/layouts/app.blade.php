@@ -9,6 +9,49 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link href="{{ asset('css/arzify.css') }}" rel="stylesheet">
+
+  {{-- OVERRIDE POSISI NAVBAR + SIDEBAR AGAR MENYATU --}}
+  <style>
+    :root{
+      --navbar-height: 56px;          /* default, nanti di-update via JS */
+      --sidebar-width-lg: 260px;      /* lebar sidebar di layar besar */
+    }
+
+    /* NAVBAR FIXED DI ATAS */
+    .app-navbar{
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1040;
+    }
+
+    /* SIDEBAR FIXED DI SAMPING (LAYAR >= LG) */
+    @media (min-width: 992px){
+      .sidebar-fixed-lg{
+        position: fixed;
+        top: var(--navbar-height);
+        left: 0;
+        bottom: 0;
+        width: var(--sidebar-width-lg);
+        overflow-y: auto;
+        border-right: 1px solid var(--border, #1f2933);
+      }
+
+      main.content-with-sidebar{
+        margin-left: var(--sidebar-width-lg);
+        padding-top: calc(var(--navbar-height) + 1.5rem);
+      }
+    }
+
+    /* DI HP / TABLET, SIDEBAR JADI OFFCANVAS BIASA */
+    @media (max-width: 991.98px){
+      main.content-with-sidebar{
+        padding-top: calc(var(--navbar-height) + 1.5rem);
+        margin-left: 0;
+      }
+    }
+  </style>
 </head>
 <body class="bg-base text-base">
   <nav class="navbar navbar-dark bg-nav shadow-sm app-navbar">
@@ -23,7 +66,6 @@
       </a>
 
       <div class="ms-auto d-flex align-items-center gap-2">
-
         {{-- === Dropdown User (Ganti Password & Logout) === --}}
         <div class="dropdown">
           <button class="btn btn-outline-cyan btn-sm dropdown-toggle d-flex align-items-center gap-2"
@@ -49,7 +91,6 @@
           </ul>
         </div>
         {{-- === /Dropdown User === --}}
-
       </div>
     </div>
   </nav>
@@ -59,6 +100,7 @@
     $isTrxNew   = request()->routeIs('transaksi.new');
     $isTrxIndex = request()->routeIs('transaksi.index') || request()->routeIs('transaksi.show');
   @endphp
+
   <div class="offcanvas-lg offcanvas-start sidebar sidebar-fixed-lg bg-surface" tabindex="-1" id="sidebarNav">
     <div class="offcanvas-header d-lg-none">
       <h5 class="offcanvas-title">Menu</h5>
@@ -160,16 +202,18 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-    // set tinggi navbar -> CSS var (untuk sidebar fixed)
+    // Hitung tinggi navbar sebenarnya -> inject ke CSS variable
     (function(){
       const nav = document.querySelector('.app-navbar');
-      const h = nav ? nav.offsetHeight : 56;
-      document.documentElement.style.setProperty('--navbar-height', h + 'px');
+      if(nav){
+        const h = nav.offsetHeight || 56;
+        document.documentElement.style.setProperty('--navbar-height', h + 'px');
+      }
     })();
 
     // Modal logout dari item dropdown
     (function(){
-      const btnLogout  = document.getElementById('btnLogout');     // item dropdown
+      const btnLogout  = document.getElementById('btnLogout');
       const logoutForm = document.getElementById('logoutForm');
       const modalEl    = document.getElementById('logoutModal');
       const confirmBtn = document.getElementById('confirmLogout');

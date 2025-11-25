@@ -286,3 +286,56 @@ main.content-with-sidebar .card .img-placeholder{
     height: 200px !important;
   }
 }
+
+:root {
+  /* tinggi navbar (akan dioverride pakai JS yg sudah kamu buat) */
+  --navbar-height: 56px;
+  /* lebar sidebar pada layar besar */
+  --sidebar-width: 260px;
+}
+
+/* NAVBAR fixed di atas */
+.app-navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1030; /* di atas sidebar & konten */
+}
+
+/* BODY / konten diberi padding-top setinggi navbar
+   supaya konten tidak ketutupan navbar */
+body {
+  padding-top: var(--navbar-height);
+}
+
+/* SIDEBAR (offcanvas) di bawah navbar */
+.sidebar {
+  top: var(--navbar-height);
+  height: calc(100vh - var(--navbar-height));
+}
+
+/* Khusus layar >= lg (≥ 992px): sidebar jadi fixed di kiri
+   dan main konten digeser ke kanan sepanjang lebar sidebar */
+@media (min-width: 992px) {
+  .sidebar-fixed-lg {
+    position: fixed;
+    left: 0;
+    width: var(--sidebar-width);
+    top: var(--navbar-height);
+    height: calc(100vh - var(--navbar-height));
+    overflow-y: auto;
+  }
+
+  main.content-with-sidebar {
+    margin-left: var(--sidebar-width);
+    /* padding atas secukupnya (body sudah punya padding-top dari navbar) */
+    padding-top: 1rem;
+  }
+}
+
+/* Untuk offcanvas di mobile, biar muncul di bawah navbar juga */
+.offcanvas-start {
+  top: var(--navbar-height);
+  height: calc(100vh - var(--navbar-height));
+}
