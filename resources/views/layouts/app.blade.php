@@ -10,7 +10,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link href="{{ asset('css/arzify.css') }}" rel="stylesheet">
 
-  {{-- OVERRIDE POSISI NAVBAR + SIDEBAR AGAR MENYATU --}}
+  {{-- POSISI NAVBAR + SIDEBAR AGAR MENYATU & TIDAK NUTUP KONTEN --}}
   <style>
     :root{
       --navbar-height: 56px;          /* default, nanti di-update via JS */
@@ -56,7 +56,13 @@
 <body class="bg-base text-base">
   <nav class="navbar navbar-dark bg-nav shadow-sm app-navbar">
     <div class="container-fluid">
-      <button class="btn btn-sm btn-outline-cyan me-2 d-lg-none" data-bs-toggle="offcanvas" data-bs-target="#sidebarNav">
+      {{-- TOGGLE SIDEBAR (HP / TABLET) --}}
+      <button class="btn btn-sm btn-outline-cyan me-2 d-lg-none"
+              type="button"
+              data-bs-toggle="offcanvas"
+              data-bs-target="#sidebarNav"
+              aria-controls="sidebarNav"
+              aria-label="Buka menu">
         <i class="bi bi-list"></i>
       </button>
 
@@ -101,11 +107,20 @@
     $isTrxIndex = request()->routeIs('transaksi.index') || request()->routeIs('transaksi.show');
   @endphp
 
-  <div class="offcanvas-lg offcanvas-start sidebar sidebar-fixed-lg bg-surface" tabindex="-1" id="sidebarNav">
+  <div class="offcanvas-lg offcanvas-start sidebar sidebar-fixed-lg bg-surface"
+       tabindex="-1"
+       id="sidebarNav"
+       aria-labelledby="sidebarNavLabel">
     <div class="offcanvas-header d-lg-none">
-      <h5 class="offcanvas-title">Menu</h5>
-      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+      <h5 class="offcanvas-title" id="sidebarNavLabel">Menu</h5>
+      {{-- TOMBOL X UNTUK MENUTUP SIDEBAR --}}
+      <button type="button"
+              class="btn-close btn-close-white"
+              id="sidebarCloseBtn"
+              data-bs-dismiss="offcanvas"
+              aria-label="Tutup"></button>
     </div>
+
     <div class="offcanvas-body p-0 d-flex flex-column">
       <ul class="nav flex-column sidebar-menu flex-grow-1">
         <li class="nav-item">
@@ -197,7 +212,7 @@
     </div>
   </div>
 
-  {{-- Bootstrap Bundle JS + Chart.js --}}
+  {{-- JS --}}
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -231,6 +246,21 @@
 
         confirmBtn.addEventListener('click', () => {
           logoutForm.submit();
+        });
+      }
+    })();
+
+    // Pastikan tombol X di offcanvas benar-benar menutup sidebar
+    (function () {
+      const sidebarEl   = document.getElementById('sidebarNav');
+      const closeBtn    = document.getElementById('sidebarCloseBtn');
+
+      if (sidebarEl && closeBtn && typeof bootstrap !== 'undefined') {
+        const offcanvas = bootstrap.Offcanvas.getOrCreateInstance(sidebarEl);
+
+        closeBtn.addEventListener('click', function (e) {
+          // data-bs-dismiss sudah cukup, tapi kita paksa hide juga
+          offcanvas.hide();
         });
       }
     })();
