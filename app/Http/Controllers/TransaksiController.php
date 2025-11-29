@@ -270,14 +270,18 @@ class TransaksiController extends Controller
 
     /** Detail transaksi (nota) */
     public function show($id)
-    {
-        $trx = Transaksi::with(['details.produk', 'kasir'])->findOrFail($id);
-        $totalItems = $trx->details->sum('qty');
+{
+    // ambil transaction + details + produk (termasuk yang di-trashed)
+    $trx = Transaksi::with(['details' => function($q) {
+                $q->with(['produk' => function($qq) {
+                    $qq->withTrashed();
+                }]);
+            }, 'kasir'])
+            ->findOrFail($id);
 
-        return view('transaksi.show', [
-            'title'      => 'Detail Transaksi',
-            'trx'        => $trx,
-            'totalItems' => $totalItems,
-        ]);
-    }
+    return view('transaksi.show', [
+        'title' => 'Detail Transaksi',
+        'trx'   => $trx,
+ ]);
+}
 }

@@ -6,18 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class DetailTransaksi extends Model
 {
-    // >>> SESUAIKAN DENGAN NAMA TABEL ASLI DI DATABASE <<<
-    // kalau tabel kamu adalah `detail_transaksi`, pakai ini:
+    // pastikan ini sesuai nama tabel di database: "detail_transaksi"
     protected $table = 'detail_transaksi';
 
-    // kalau ternyata di DB kamu namanya `detailtransaksi`, ubah ke:
-    // protected $table = 'detailtransaksi';
-
-    // primary key tabel detail (lihat di phpMyAdmin kolom mana yg jadi PRIMARY)
-    protected $primaryKey = 'iddetail'; 
-    // kalau pk kamu namanya beda (misal iddetailtransaksi) ubah di sini
-
-    public $timestamps = false;
+    public $timestamps = true; // kalau tabel punya created_at/updated_at; ubah false jika tidak
 
     protected $fillable = [
         'idtransaksi',
@@ -28,17 +20,21 @@ class DetailTransaksi extends Model
         'satuan_jual',
     ];
 
-    // setiap baris detail milik 1 produk
+    protected $casts = [
+        'qty' => 'integer',
+        'harga_satuan' => 'float',
+        'subtotal' => 'float',
+    ];
+
+    // relasi ke produk (pakai withTrashed jika produk soft-deleted)
     public function produk()
     {
-        // idproduk di detail_transaksi -> idproduk di produk
-        return $this->belongsTo(Produk::class, 'idproduk', 'idproduk');
+        return $this->belongsTo(Produk::class, 'idproduk', 'idproduk')->withTrashed();
     }
 
-    // setiap baris detail milik 1 transaksi
+    // **PENTING**: relasi ke transaksi — diperlukan untuk whereHas di dashboard
     public function transaksi()
     {
-        // idtransaksi di detail_transaksi -> idtransaksi di transaksi
         return $this->belongsTo(Transaksi::class, 'idtransaksi', 'idtransaksi');
     }
 }

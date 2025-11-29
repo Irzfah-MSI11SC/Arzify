@@ -11,20 +11,23 @@
     <table class="table table-dark table-hover align-middle m-0">
       <thead>
         <tr>
-          <th>#</th>
+          {{-- HAPUS KOLOM ID --}}
           <th>Nama</th>
           <th class="text-end">Aksi</th>
         </tr>
       </thead>
+
       <tbody>
         @foreach($kategori as $k)
           <tr>
-            <td>{{ $k->idkategori }}</td>
+            {{-- HAPUS KOLOM ID --}}
             <td>{{ $k->nama }}</td>
-            <td class="text-end">
-              <a href="{{ route('kategori.edit',$k) }}" class="btn btn-sm btn-outline-cyan">Ubah</a>
 
-              {{-- FORM HAPUS: TANPA confirm() – pakai modal --}}
+            <td class="text-end">
+              <a href="{{ route('kategori.edit',$k) }}" class="btn btn-sm btn-outline-cyan">
+                Ubah
+              </a>
+
               <form action="{{ route('kategori.destroy',$k) }}"
                     method="post"
                     class="d-inline form-delete"
@@ -44,33 +47,33 @@
   </div>
 </div>
 
-<div class="mt-3">{{ $kategori->withQueryString()->links() }}</div>
+<div class="mt-3">
+  {{ $kategori->withQueryString()->links() }}
+</div>
 
-{{-- MODAL KONFIRMASI HAPUS (boleh sama ID, karena halaman berbeda) --}}
+{{-- MODAL KONFIRMASI HAPUS --}}
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content bg-surface text-base border border-secondary">
+
       <div class="modal-header">
         <h5 class="modal-title">Konfirmasi Hapus</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Tutup"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
+
       <div class="modal-body">
-        <div id="confirmDeleteMessage">
-          Apakah Anda yakin ingin menghapus data ini?
-        </div>
+        <div id="confirmDeleteMessage">Apakah Anda yakin ingin menghapus data ini?</div>
       </div>
+
       <div class="modal-footer">
-        <button type="button"
-                class="btn btn-outline-secondary btn-sm"
-                data-bs-dismiss="modal">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
           Tidak
         </button>
-        <button type="button"
-                class="btn btn-danger btn-sm"
-                id="confirmDeleteBtn">
+        <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteBtn">
           Ya, Hapus
         </button>
       </div>
+
     </div>
   </div>
 </div>
@@ -96,8 +99,8 @@
       form.addEventListener('submit', function (e) {
         e.preventDefault();
 
-        const entity = form.getAttribute('data-entity') || 'data';
-        const name   = form.getAttribute('data-name')   || '';
+        const entity = form.dataset.entity || 'data';
+        const name   = form.dataset.name || '';
 
         messageEl.textContent = `Hapus ${entity} "${name}"?`;
         formToSubmit = form;

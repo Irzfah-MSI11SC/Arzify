@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Produk extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'produk';
     protected $primaryKey = 'idproduk';
-    public $timestamps = false;
+    public $incrementing = true;
+    protected $keyType = 'int';
+    public $timestamps = false; // ubah ke true jika tabel punya timestamps created_at/updated_at
 
     protected $fillable = [
         'nama',
@@ -16,7 +21,7 @@ class Produk extends Model
         'harga',
         'stok',
         'satuan_base',
-        'gambar', // LONGBLOB
+        'gambar',
     ];
 
     protected $casts = [
@@ -24,16 +29,15 @@ class Produk extends Model
         'stok'  => 'float',
     ];
 
-    /** Relasi ke kategori (FK: idkategori → PK: idkategori) */
+    // relasi ke kategori
     public function kategori()
     {
         return $this->belongsTo(Kategori::class, 'idkategori', 'idkategori');
     }
 
-    /** Nama tabel detail transaksi (dipakai saat guard delete) */
+    // nama tabel detail (dipakai di controller pengecekan)
     public static function detailTable(): string
     {
-        // Sesuaikan dengan skema DB: detail_transaksi
-        return 'detail_transaksi';
+        return 'detailtransaksi';
     }
 }

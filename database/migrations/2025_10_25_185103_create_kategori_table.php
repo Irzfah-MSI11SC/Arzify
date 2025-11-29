@@ -11,6 +11,7 @@ return new class extends Migration {
                 $table->bigIncrements('idkategori');
                 $table->string('nama', 255)->unique();
                 $table->timestamps();
+                $table->softDeletes();
             });
         }
     }

@@ -15,8 +15,8 @@ class Transaksi extends Model
         'tanggal',
         'total',
         'metode_bayar',
-        'uang_tunai',   // ✅ baru
-        'kembalian',    // ✅ baru
+        'uang_tunai',
+        'kembalian',
     ];
 
     protected $casts = [

@@ -20,8 +20,13 @@ class KategoriController extends Controller
 
     public function store(Request $r)
     {
-        $data = $r->validate(['nama'=>'required|string|max:255|unique:kategori,nama']);
-        Kategori::create($data);
+        // note: blade mengirim 'kategori' jadi kita validasi key 'kategori' lalu simpan ke kolom 'nama'
+        $data = $r->validate([
+            'kategori' => 'required|string|max:255|unique:kategori,nama'
+        ]);
+
+        Kategori::create(['nama' => $data['kategori']]);
+
         return redirect()->route('kategori.index')->with('success','Kategori ditambahkan.');
     }
 
@@ -32,19 +37,22 @@ class KategoriController extends Controller
 
     public function update(Request $r, Kategori $kategori)
     {
-        $data = $r->validate(['nama'=>'required|string|max:255|unique:kategori,nama,'.$kategori->idkategori.',idkategori']);
-        $kategori->update($data);
+        $data = $r->validate([
+            'kategori' => 'required|string|max:255|unique:kategori,nama,'.$kategori->idkategori.',idkategori'
+        ]);
+
+        $kategori->update(['nama' => $data['kategori']]);
+
         return redirect()->route('kategori.index')->with('success','Perubahan disimpan.');
     }
 
     public function destroy(Kategori $kategori)
-{
-    if ($kategori->produk()->exists()) {
-        return back()->with('error', 'Kategori masih dipakai produk.');
+    {
+        if ($kategori->produk()->exists()) {
+            return back()->with('error', 'Kategori masih dipakai produk.');
+        }
+
+        $kategori->delete();
+        return back()->with('success', 'Kategori berhasil dihapus.');
     }
-
-    $kategori->delete();
-    return back()->with('success', 'Kategori berhasil dihapus.');
-}
-
-}
+} 

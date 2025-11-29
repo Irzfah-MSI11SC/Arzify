@@ -16,8 +16,8 @@ class ProdukController extends Controller
         $q = trim((string) $r->q);
 
         $produk = Produk::query()
-            ->with(['kategori:idkategori,nama'])               // eager load kategori
-            ->when($q !== '', fn ($qq) => $qq->where('nama', 'like', "%{$q}%"))
+            ->with(['kategori:idkategori,nama'])
+            ->when($q !== '', fn($qq) => $qq->where('nama', 'like', "%{$q}%"))
             ->orderBy('nama')
             ->paginate(12)
             ->withQueryString();
@@ -33,7 +33,6 @@ class ProdukController extends Controller
     public function create()
     {
         $kategori = Kategori::orderBy('nama')->get(['idkategori', 'nama']);
-
         return view('produk.create', [
             'title'    => 'Tambah Produk',
             'kategori' => $kategori,
@@ -63,7 +62,6 @@ class ProdukController extends Controller
             $data['satuan_base'] = $valid['satuan_base'] ?? null;
         }
 
-        // Gambar → LONGBLOB
         if ($r->hasFile('gambar') && $r->file('gambar')->isValid()) {
             $limit = $this->blobLimit('produk', 'gambar');
             $blob  = $this->prepareBlobImage($r->file('gambar')->getRealPath(), $limit)
@@ -72,9 +70,7 @@ class ProdukController extends Controller
             if ($blob !== false && $blob !== null && strlen($blob) <= $limit) {
                 $data['gambar'] = $blob;
             } else {
-                return back()
-                    ->withInput()
-                    ->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
+                return back()->withInput()->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
             }
         }
 
@@ -130,9 +126,7 @@ class ProdukController extends Controller
             if ($blob !== false && $blob !== null && strlen($blob) <= $limit) {
                 $data['gambar'] = $blob;
             } else {
-                return back()
-                    ->withInput()
-                    ->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
+                return back()->withInput()->with('error', 'Gambar terlalu besar untuk tipe kolom saat ini. Unggah gambar yang lebih kecil.');
             }
         }
 
@@ -146,18 +140,13 @@ class ProdukController extends Controller
     public function tambahStok(Request $r, $id)
     {
         $valid = $r->validate([
-            'qty' => ['required', 'numeric', 'min:0.01'],   // jumlah stok yang akan ditambahkan
+            'qty' => ['required', 'numeric', 'min:0.01'],
         ]);
 
         $p = Produk::findOrFail($id);
-
-        // Tambah stok (pakai increment supaya aman)
         $p->increment('stok', (float) $valid['qty']);
 
-        return back()->with(
-            'success',
-            'Stok produk "' . $p->nama . '" bertambah ' . $valid['qty'] . '.'
-        );
+        return back()->with('success', 'Stok produk "' . $p->nama . '" bertambah ' . $valid['qty'] . '.');
     }
 
     /* ======================== DESTROY ======================= */
@@ -165,20 +154,19 @@ class ProdukController extends Controller
     {
         $p = Produk::findOrFail($id);
 
-        // Kumpulkan kandidat nama tabel detail transaksi
+        // cek apakah produk dipakai di detail transaksi (nama tabel sesuai project)
+        $dipakai = false;
+
+        // Kalau kamu punya method detailTable() di model: pakai itu (lebih aman)
         $candidates = [];
         if (method_exists(Produk::class, 'detailTable')) {
             try {
                 $t = Produk::detailTable();
-                if (is_string($t) && $t !== '') {
-                    $candidates[] = $t;
-                }
-            } catch (\Throwable $e) {
-                // abaikan
-            }
+                if (is_string($t) && $t !== '') $candidates[] = $t;
+            } catch (\Throwable $e) { /* ignore */ }
         }
 
-        // Tambahkan beberapa nama umum
+        // nama-nama umum jika tidak ditemukan
         $candidates = array_values(array_unique(array_merge($candidates, [
             'detail_transaksi',
             'detailtransaksi',
@@ -186,28 +174,19 @@ class ProdukController extends Controller
             'detailtransaksis',
         ])));
 
-        // Kemungkinan nama kolom relasi ke produk
         $colCandidates = ['idproduk', 'produk_id', 'id_produk'];
-
-        $dipakai = false;
 
         foreach ($candidates as $tbl) {
             if (!Schema::hasTable($tbl)) continue;
 
             $col = null;
             foreach ($colCandidates as $c) {
-                if (Schema::hasColumn($tbl, $c)) {
-                    $col = $c;
-                    break;
-                }
+                if (Schema::hasColumn($tbl, $c)) { $col = $c; break; }
             }
             if (!$col) continue;
 
             try {
-                $dipakai = DB::table($tbl)
-                    ->where($col, $p->idproduk ?? $p->id)
-                    ->limit(1)
-                    ->exists();
+                $dipakai = DB::table($tbl)->where($col, $p->idproduk)->limit(1)->exists();
             } catch (\Throwable $e) {
                 $dipakai = false;
             }
@@ -216,9 +195,12 @@ class ProdukController extends Controller
         }
 
         if ($dipakai) {
-            return back()->with('error', 'Produk tidak bisa dihapus karena sudah dipakai pada transaksi.');
+            // produk pernah dipakai -> gunakan soft delete agar riwayat transaksi tetap menampilkan produk (pakai withTrashed di relasi)
+            $p->delete();
+            return back()->with('success', 'Produk berhasil dihapus');
         }
 
+        // kalau tidak dipakai → juga soft delete (atau forceDelete jika mau hapus permanen)
         $p->delete();
         return back()->with('success', 'Produk berhasil dihapus.');
     }
@@ -275,15 +257,9 @@ class ProdukController extends Controller
         $mimeIn  = $info['mime'] ?? 'image/jpeg';
 
         switch ($mimeIn) {
-            case 'image/png':
-                $src = @imagecreatefrompng($path);  break;
-            case 'image/webp':
-                $src = function_exists('imagecreatefromwebp')
-                    ? @imagecreatefromwebp($path)
-                    : null;
-                break;
-            default:
-                $src = @imagecreatefromjpeg($path); break;
+            case 'image/png':  $src = @imagecreatefrompng($path); break;
+            case 'image/webp': $src = function_exists('imagecreatefromwebp') ? @imagecreatefromwebp($path) : null; break;
+            default:           $src = @imagecreatefromjpeg($path); break;
         }
         if (!$src) return null;
 
@@ -303,11 +279,8 @@ class ProdukController extends Controller
             imagecopyresampled($dst, $src, 0, 0, 0, 0, $targetW, $targetH, $w, $h);
 
             ob_start();
-            if ($canWebp) {
-                imagewebp($dst, null, $qWebp);
-            } else {
-                imagejpeg($dst, null, $qJpg);
-            }
+            if ($canWebp) imagewebp($dst, null, $qWebp);
+            else          imagejpeg($dst, null, $qJpg);
             $bin = ob_get_clean();
 
             imagedestroy($dst);

@@ -10,15 +10,28 @@ class KasirSeeder extends Seeder
 {
     public function run(): void
     {
-        // Tambahan contoh kasir lain (opsional)
-        DB::table('kasir')->updateOrInsert(
-            ['username' => 'sakata'],
+        $data = [
             [
+                'username'   => 'sakata',
                 'nama'       => 'Sakata',
                 'password'   => Hash::make('123456'),
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]
-        );
+            ],
+            [
+                'username'   => 'irjon',
+                'nama'       => 'Irjon',
+                'password'   => Hash::make('123456'),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ];
+
+        foreach ($data as $kasir) {
+            DB::table('kasir')->updateOrInsert(
+                ['username' => $kasir['username']],  // kondisi pencarian
+                $kasir                                // data yang disimpan
+            );
+        }
     }
 }

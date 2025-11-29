@@ -16,6 +16,7 @@ return new class extends Migration {
                 $table->enum('satuan_base', ['pcs','kg','liter','pack','unit']);
                 $table->binary('gambar')->nullable();
                 $table->timestamps();
+                $table->softDeletes();
 
                 $table->foreign('idkategori')
                       ->references('idkategori')->on('kategori')
